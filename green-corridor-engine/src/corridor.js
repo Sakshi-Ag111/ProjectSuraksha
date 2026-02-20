@@ -13,6 +13,7 @@
 const { getVelocity } = require('./haversine');
 const JitterSmoother = require('./jitter');
 const { evaluateTTI } = require('./tti');
+const { triggerSignalOverride } = require('./signalBridge'); // ← integration bridge
 
 /**
  * @param {import('socket.io').Server} io
@@ -109,6 +110,19 @@ function createCorridorEngine(io, config = {}) {
                     `🚨 [GREEN] ${id} → node ${intersection.id} (${intersection.highway})` +
                     ` | dist: ${tti.distanceToSignalM}m | TTI: ${tti.ttiSeconds}s`
                 );
+
+                // ── INTEGRATION BRIDGE ───────────────────────────────────────
+                // Call the Signal Priority API to physically flip the signals.
+                // triggerSignalOverride figures out which direction (N/S/E/W)
+                // the ambulance is heading and which managed intersection to
+                // apply the override to, then POSTs to port 3000.
+                triggerSignalOverride({
+                    ambulanceId: id,
+                    ambulancePos: { lat, lon },
+                    intersectionPos: { lat: intersection.lat, lon: intersection.lon },
+                    ttiSeconds: tti.ttiSeconds ?? 5,
+                }).catch(err => console.error('[corridor] Bridge error:', err.message));
+                // ─────────────────────────────────────────────────────────────
             }
         }
 
