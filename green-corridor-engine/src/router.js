@@ -1,21 +1,11 @@
 /**
  * router.js
  * Dijkstra shortest-path on the Jaipur road graph.
- *
- * Exports:
- *   findRoute(srcNodeId, dstNodeId) → { path: [nodeId,...], intersections: [node,...] }
- *   buildAdjacency()               → call once after loadGraph()
  */
-
 const { getGraph, getIntersectionNodes } = require('./mapLoader');
 
-// Adjacency list: Map<nodeId, [{to, weight}]>
 let _adj = null;
 
-/**
- * Build the adjacency list from the loaded graph edges.
- * Call once after loadGraph() completes.
- */
 function buildAdjacency() {
     const { edges } = getGraph();
     _adj = new Map();
@@ -35,13 +25,6 @@ function buildAdjacency() {
     console.log(`[router] Adjacency built: ${_adj.size} nodes`);
 }
 
-/**
- * Dijkstra's algorithm.
- *
- * @param {string} srcId  - Source node ID
- * @param {string} dstId  - Destination node ID
- * @returns {{ path: string[], distanceM: number } | null}
- */
 function dijkstra(srcId, dstId) {
     if (!_adj) throw new Error('Call buildAdjacency() first');
 
@@ -84,13 +67,6 @@ function dijkstra(srcId, dstId) {
     return { path, distanceM: dist.get(dstId) };
 }
 
-/**
- * Find the route and extract intersection nodes along it.
- *
- * @param {string} srcNodeId
- * @param {string} dstNodeId
- * @returns {{ path: string[], waypoints: Object[], intersections: Object[], distanceM: number } | null}
- */
 function findRoute(srcNodeId, dstNodeId) {
     const result = dijkstra(srcNodeId, dstNodeId);
     if (!result) return null;

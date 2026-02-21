@@ -1,14 +1,7 @@
 /**
  * mapLoader.js
- * Parses jaipur_small.graphml and exposes two things:
- *
- *   getGraph()          → { nodes: Map<id, {id,lat,lon,highway}>, edges: [] }
- *   findNearestNode(lat, lon) → nearest graph node object
- *
- * Uses Node's readline to stream-parse the 5 MB file without loading it all
- * in one go, so startup stays fast.
+ * Parses jaipur_small.graphml
  */
-
 const fs = require('fs');
 const readline = require('readline');
 const path = require('path');
@@ -41,10 +34,9 @@ async function loadGraph(filePath) {
     console.log('[mapLoader] Parsing', filePath, '...');
     const start = Date.now();
 
-    const nodes = new Map();   // id → { id, lat, lon, highway }
-    const edges = [];          // { source, target, length, highway, name }
+    const nodes = new Map();
+    const edges = [];
 
-    // ── streaming state machine ──────────────────────────────────────────────
     let currentNodeId = null;
     let currentEdge = null;
     let currentDataKey = null;
@@ -59,7 +51,6 @@ async function loadGraph(filePath) {
     for await (const line of rl) {
         const trimmed = line.trim();
 
-        // ── <node id="..."> ────────────────────────────────────────────────────
         const nodeOpen = trimmed.match(/^<node\s+id="([^"]+)"/);
         if (nodeOpen) {
             currentNodeId = nodeOpen[1];
@@ -68,13 +59,11 @@ async function loadGraph(filePath) {
             continue;
         }
 
-        // ── </node> ────────────────────────────────────────────────────────────
         if (trimmed === '</node>') {
             currentNodeId = null;
             continue;
         }
 
-        // ── <edge source="..." target="..." id="..."> ──────────────────────────
         const edgeOpen = trimmed.match(/^<edge\s+source="([^"]+)"\s+target="([^"]+)"/);
         if (edgeOpen) {
             currentEdge = { source: edgeOpen[1], target: edgeOpen[2], length: null, highway: null, name: null };
@@ -82,14 +71,12 @@ async function loadGraph(filePath) {
             continue;
         }
 
-        // ── </edge> ────────────────────────────────────────────────────────────
         if (trimmed === '</edge>') {
             if (currentEdge) edges.push(currentEdge);
             currentEdge = null;
             continue;
         }
 
-        // ── <data key="dN">value</data>  (single-line) ────────────────────────
         const dataInline = trimmed.match(/^<data\s+key="([^"]+)">([\s\S]*?)<\/data>$/);
         if (dataInline) {
             const [, key, value] = dataInline;
@@ -97,7 +84,6 @@ async function loadGraph(filePath) {
             continue;
         }
 
-        // ── <data key="dN"> (multiline open) ──────────────────────────────────
         const dataOpen = trimmed.match(/^<data\s+key="([^"]+)">(.*)$/);
         if (dataOpen) {
             currentDataKey = dataOpen[1];
@@ -106,7 +92,6 @@ async function loadGraph(filePath) {
             continue;
         }
 
-        // ── </data> (close of multiline) ──────────────────────────────────────
         if (inData && trimmed.endsWith('</data>')) {
             dataBuffer += '\n' + trimmed.replace('</data>', '');
             applyData(currentDataKey, dataBuffer.trim(), currentNodeId, currentEdge, nodes);
@@ -114,7 +99,6 @@ async function loadGraph(filePath) {
             continue;
         }
 
-        // ── accumulate multiline data ──────────────────────────────────────────
         if (inData) {
             dataBuffer += '\n' + trimmed;
         }

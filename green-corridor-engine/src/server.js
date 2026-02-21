@@ -1,25 +1,6 @@
 /**
  * server.js
  * Entry point – Express + Socket.io Real-Time Processing Engine.
- *
- * Startup:
- *   1. Parse Data/jaipur_small.graphml
- *   2. Build adjacency list for routing
- *   3. Start listening
- *
- * REST API:
- *   GET  /health
- *   POST /route                        – find road path + auto-extract intersections
- *   POST /telemetry                    – receive ambulance GPS tick
- *   GET  /map/nodes                    – all road nodes (for dashboard map render)
- *   GET  /map/intersections            – only highway-tagged nodes
- *   GET  /map/intersections/nearby     – filtered by proximity
- *   GET  /map/nearest?lat&lon          – snap any coordinate to road network
- *
- * Socket.io (server → client):
- *   current_stats          – every telemetry tick
- *   priority_signal_change – when an intersection is greened
- *   route_set              – when a new route is loaded
  */
 
 require('dotenv').config();
@@ -34,13 +15,11 @@ const { loadGraph, getGraph, findNearestNode,
     getIntersectionNodes } = require('./mapLoader');
 const { buildAdjacency, findRoute } = require('./router');
 
-// ── Config ────────────────────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT, 10) || 3001;
 const PROXIMITY_THRESHOLD_M = parseInt(process.env.PROXIMITY_THRESHOLD_METERS, 10) || 500;
 const TTI_THRESHOLD_SEC = parseInt(process.env.TTI_THRESHOLD_SECONDS, 10) || 20;
 const SMOOTHING_WINDOW = parseInt(process.env.VELOCITY_SMOOTHING_WINDOW, 10) || 5;
 
-// ── App ───────────────────────────────────────────────────────────────────────
 const app = express();
 const server = http.createServer(app);
 app.use(cors());
@@ -48,12 +27,7 @@ app.use(express.json());
 
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 
-// ── Engine state ──────────────────────────────────────────────────────────────
-let corridorEngine = null;   // { processTelemetry, setRoute }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  REST API
-// ─────────────────────────────────────────────────────────────────────────────
+let corridorEngine = null; // { processTelemetry, setRoute }
 
 app.get('/health', (_req, res) => {
     res.json({
@@ -67,66 +41,96 @@ app.get('/health', (_req, res) => {
 /**
  * POST /route
  * Find the road-network path and extract all intersections along it.
- *
- * Body: { "srcLat": 26.92, "srcLon": 75.787, "dstLat": 26.91, "dstLon": 75.787 }
- *
- * Response: {
- *   distanceM, waypointCount,
- *   intersections: [{ id, lat, lon, highway }, ...],
- *   waypoints:     [{ id, lat, lon }, ...]
- * }
- *
- * Also calls setRoute() on the corridor engine so telemetry immediately
- * starts triggering against the new intersections.
  */
 app.post('/route', (req, res) => {
     if (!corridorEngine) return res.status(503).json({ error: 'Engine still loading' });
 
-    const { srcLat, srcLon, dstLat, dstLon } = req.body;
-    if ([srcLat, srcLon, dstLat, dstLon].some(v => v == null || isNaN(v))) {
-        return res.status(400).json({ error: 'Body must include srcLat, srcLon, dstLat, dstLon (numbers)' });
+    let waypointsCoords = [];
+
+    if (req.body.waypoints && Array.isArray(req.body.waypoints)) {
+        waypointsCoords = req.body.waypoints;
+    } else {
+        const { srcLat, srcLon, dstLat, dstLon } = req.body;
+        if ([srcLat, srcLon, dstLat, dstLon].some(v => v == null || isNaN(v))) {
+            return res.status(400).json({ error: 'Body must include waypoints array OR srcLat, srcLon, dstLat, dstLon' });
+        }
+        waypointsCoords = [{ lat: srcLat, lon: srcLon }, { lat: dstLat, lon: dstLon }];
     }
 
-    // Snap src/dst to nearest road nodes
-    const srcNode = findNearestNode(srcLat, srcLon);
-    const dstNode = findNearestNode(dstLat, dstLon);
-
-    if (!srcNode || !dstNode) {
-        return res.status(404).json({ error: 'Could not find road nodes near src/dst' });
+    if (waypointsCoords.length < 2) {
+        return res.status(400).json({ error: 'At least 2 waypoints are required' });
     }
 
-    console.log(`[route] src node ${srcNode.id} → dst node ${dstNode.id}`);
+    let totalDistanceM = 0;
+    let allIntersections = [];
+    let allWaypoints = [];
+    let totalNodesCount = 0;
 
-    const route = findRoute(srcNode.id, dstNode.id);
-    if (!route) {
-        return res.status(404).json({ error: 'No path found between src and dst in the road network' });
+    for (let i = 0; i < waypointsCoords.length - 1; i++) {
+        const p1 = waypointsCoords[i];
+        const p2 = waypointsCoords[i + 1];
+
+        const srcNode = findNearestNode(p1.lat, p1.lon);
+        const dstNode = findNearestNode(p2.lat, p2.lon);
+
+        if (!srcNode || !dstNode) {
+            console.warn(`[route] No road nodes near ${p1.lat},${p1.lon} or ${p2.lat},${p2.lon}. Skipping graphml segment.`);
+            continue;
+        }
+
+        console.log(`[route leg ${i + 1}] src node ${srcNode.id} → dst node ${dstNode.id}`);
+
+        const route = findRoute(srcNode.id, dstNode.id);
+        if (!route) {
+            console.warn(`[route] No graphml path found between node ${srcNode.id} and ${dstNode.id}. Skipping segment.`);
+            continue;
+        }
+
+        totalDistanceM += route.distanceM;
+        allIntersections = allIntersections.concat(route.intersections);
+
+        if (i > 0 && allWaypoints.length > 0 && route.waypoints.length > 0) {
+            allWaypoints = allWaypoints.concat(route.waypoints.slice(1));
+        } else {
+            allWaypoints = allWaypoints.concat(route.waypoints);
+        }
+        totalNodesCount += route.path.length;
     }
 
-    // Load intersections into the corridor engine
-    corridorEngine.setRoute(route.intersections);
+    // ── Merge graphml intersections + managed signal intersections ─────────────
+    const managedAsNodes = [
+        { id: 'INT-MAIN', lat: 26.8860, lon: 75.7880, highway: 'traffic_signals' },   // C-Scheme Area
+        { id: 'INT-NORTH', lat: 26.9350, lon: 75.7860, highway: 'traffic_signals' },   // Sindhi Camp
+        { id: 'INT-EAST', lat: 26.9124, lon: 75.8050, highway: 'traffic_signals' },   // Jaipur Junction
+    ];
+
+    const graphmlIds = new Set(allIntersections.map(i => i.id));
+    const mergedIntersections = [
+        ...allIntersections,
+        ...managedAsNodes.filter(mi => !graphmlIds.has(mi.id)),
+    ];
+
+    // Load merged intersections into the corridor engine
+    corridorEngine.setRoute(mergedIntersections);
 
     // Broadcast to dashboard
     io.to('dashboard').emit('route_set', {
-        distanceM: route.distanceM,
-        intersectionCount: route.intersections.length,
-        intersections: route.intersections,
+        distanceM: totalDistanceM,
+        intersectionCount: mergedIntersections.length,
+        intersections: mergedIntersections,
     });
 
-    console.log(`[route] Path: ${route.path.length} nodes | ${route.intersections.length} intersections | ${route.distanceM.toFixed(0)} m`);
+    console.log(`[route total] Path: ${totalNodesCount} nodes | ${mergedIntersections.length} intersections (${allIntersections.length} graphml) | ${totalDistanceM.toFixed(0)} m`);
 
     res.json({
-        distanceM: parseFloat(route.distanceM.toFixed(2)),
-        waypointCount: route.waypoints.length,
-        intersectionCount: route.intersections.length,
-        intersections: route.intersections,
-        waypoints: route.waypoints,
+        distanceM: parseFloat(totalDistanceM.toFixed(2)),
+        waypointCount: allWaypoints.length,
+        intersectionCount: mergedIntersections.length,
+        intersections: mergedIntersections,
+        waypoints: allWaypoints,
     });
 });
 
-/**
- * POST /telemetry
- * Body: { "id": "AMB_01", "lat": 26.91, "lon": 75.78, "timestamp": 1700000000 }
- */
 app.post('/telemetry', (req, res) => {
     if (!corridorEngine) return res.status(503).json({ error: 'Engine still loading' });
 
@@ -148,20 +152,17 @@ app.post('/telemetry', (req, res) => {
     }
 });
 
-/** GET /map/nodes */
 app.get('/map/nodes', (_req, res) => {
     const graph = getGraph();
     if (!graph) return res.status(503).json({ error: 'Map not loaded' });
     res.json({ count: graph.nodes.size, nodes: Array.from(graph.nodes.values()) });
 });
 
-/** GET /map/intersections */
 app.get('/map/intersections', (_req, res) => {
     try { res.json({ nodes: getIntersectionNodes() }); }
     catch (e) { res.status(503).json({ error: e.message }); }
 });
 
-/** GET /map/intersections/nearby?lat&lon&radius */
 app.get('/map/intersections/nearby', (req, res) => {
     const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
     const radius = parseFloat(req.query.radius) || 1000;
@@ -177,16 +178,12 @@ app.get('/map/intersections/nearby', (req, res) => {
     } catch (e) { res.status(503).json({ error: e.message }); }
 });
 
-/** GET /map/nearest?lat&lon */
 app.get('/map/nearest', (req, res) => {
     const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
     if (isNaN(lat) || isNaN(lon)) return res.status(400).json({ error: 'lat and lon required' });
     res.json(findNearestNode(lat, lon) || { error: 'No node found' });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Socket.io
-// ─────────────────────────────────────────────────────────────────────────────
 io.on('connection', (socket) => {
     console.log(`[WS] connected: ${socket.id}`);
     socket.on('join_dashboard', () => {
@@ -197,9 +194,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => console.log(`[WS] disconnected: ${socket.id}`));
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Startup
-// ─────────────────────────────────────────────────────────────────────────────
 loadGraph()
     .then((graph) => {
         buildAdjacency();

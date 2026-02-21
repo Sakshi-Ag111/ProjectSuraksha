@@ -50,11 +50,11 @@ const SECURITY_TOKEN = process.env.SECURITY_TOKEN || 'SURAKSHA_SECURE_TOKEN_2024
 const BRIDGE_VEHICLE_ID = process.env.BRIDGE_VEHICLE_ID || 'AMB-001';
 
 // ── Our 3 managed intersections (Jaipur coordinates) ────────────
-// These must match the coordinates in config/intersections.js
+// MUST stay in sync with config/intersections.js on the signal backend.
 const MANAGED_INTERSECTIONS = [
-    { id: 'INT-MAIN', lat: 26.9124, lon: 75.7873 },   // Civil Lines
-    { id: 'INT-NORTH', lat: 26.9300, lon: 75.7873 },   // Sindhi Camp area
-    { id: 'INT-EAST', lat: 26.9124, lon: 75.8050 },   // Jaipur Junction area
+    { id: 'INT-MAIN', lat: 26.8860, lon: 75.7880 },   // C-Scheme Area Crossing
+    { id: 'INT-NORTH', lat: 26.9350, lon: 75.7860 },   // Sindhi Camp Bus Stand Crossing
+    { id: 'INT-EAST', lat: 26.9124, lon: 75.8050 },   // Jaipur Junction Stn Crossing
 ];
 
 // ── Utility: Haversine distance (metres) ────────────────────────
@@ -126,7 +126,7 @@ async function triggerSignalOverride({ ambulanceId, ambulancePos, intersectionPo
 
     // ── Step 3: Call your Signal Priority API ────────────────────
     const body = {
-        ambulance_id: BRIDGE_VEHICLE_ID,
+        ambulance_id: ambulanceId,
         signal_id: signalId,
         estimated_arrival_time: Math.ceil(ttiSeconds),
         intersection_id: intersection.id,
@@ -163,4 +163,4 @@ async function triggerSignalOverride({ ambulanceId, ambulancePos, intersectionPo
     }
 }
 
-module.exports = { triggerSignalOverride };
+module.exports = { triggerSignalOverride, MANAGED_INTERSECTIONS };

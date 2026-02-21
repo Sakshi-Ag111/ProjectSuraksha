@@ -1,13 +1,6 @@
 /**
  * corridor.js
  * Green Corridor orchestrator.
- *
- * Handles a SEQUENCE of intersections along the route.
- * As the ambulance approaches each one (≤ proximityM AND TTI ≤ ttiSec),
- * a priority_signal_change event fires for that intersection.
- * Once passed, the engine moves to the next one.
- *
- * Exported factory: createCorridorEngine(io, config) → { processTelemetry, setRoute }
  */
 
 const { getVelocity } = require('./haversine');
@@ -18,10 +11,6 @@ const { triggerSignalOverride } = require('./signalBridge'); // ← integration 
 /**
  * @param {import('socket.io').Server} io
  * @param {Object} config
- * @param {{ lat, lon }}  config.signalCoord           - Fallback single signal (used if no route set)
- * @param {number}        config.proximityThresholdM   - Default 500 m
- * @param {number}        config.ttiThresholdSec       - Default 20 s
- * @param {number}        config.smoothingWindow        - Default 5
  */
 function createCorridorEngine(io, config = {}) {
     const {
@@ -38,31 +27,18 @@ function createCorridorEngine(io, config = {}) {
     // Each entry: { id, lat, lon, highway, triggered: bool }
     let routeIntersections = [];
 
-    /**
-     * Set the ordered list of intersections for the active route.
-     * Call this after computing a route via the router.
-     * @param {Object[]} intersections - Array of { id, lat, lon, highway }
-     */
     function setRoute(intersections) {
         routeIntersections = intersections.map(n => ({ ...n, triggered: false }));
         console.log(`[corridor] Route set with ${routeIntersections.length} intersection(s) to green`);
     }
 
-    /**
-     * Process a single telemetry payload.
-     * @param {{ id, lat, lon, timestamp }} payload
-     */
     function processTelemetry(payload) {
         const { id, lat, lon, timestamp } = payload;
-
-        // ── Per-ambulance state ─────────────────────────────────────────────
         if (!ambulanceState.has(id)) {
             ambulanceState.set(id, { lastPoint: null, smoother: new JitterSmoother(smoothingWindow) });
         }
         const state = ambulanceState.get(id);
         const newPoint = { lat, lon, timestamp };
-
-        // ── Velocity ────────────────────────────────────────────────────────
         let smoothVelocityMs = 0, velocityKmh = 0;
         if (state.lastPoint) {
             const vel = getVelocity(state.lastPoint, newPoint);
@@ -70,8 +46,6 @@ function createCorridorEngine(io, config = {}) {
             velocityKmh = parseFloat((smoothVelocityMs * 3.6).toFixed(2));
         }
         state.lastPoint = newPoint;
-
-        // ── Evaluate each un-triggered intersection on the route ────────────
         const signalEvents = [];
 
         const targets = routeIntersections.length > 0
@@ -121,7 +95,16 @@ function createCorridorEngine(io, config = {}) {
                     ambulancePos: { lat, lon },
                     intersectionPos: { lat: intersection.lat, lon: intersection.lon },
                     ttiSeconds: tti.ttiSeconds ?? 5,
-                }).catch(err => console.error('[corridor] Bridge error:', err.message));
+                })
+                    .then(data => {
+                        if (data && data.intersection_state) {
+                            io.to('dashboard').emit('signal_state_updated', {
+                                id: intersection.id,
+                                state: data.intersection_state
+                            });
+                        }
+                    })
+                    .catch(err => console.error('[corridor] Bridge error:', err.message));
                 // ─────────────────────────────────────────────────────────────
             }
         }

@@ -21,6 +21,17 @@ const express = require("express");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ── Middleware: CORS — allow the local dashboard (file://) to call this API ──
+// file:// pages send Origin: null — browsers only accept '*' for null origins,
+// not the literal string 'null'. Using '*' is safe for this dev environment.
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,SecurityToken');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+});
+
 // ── Middleware: parse JSON request bodies ─────────────────────
 app.use(express.json());
 
@@ -37,12 +48,17 @@ app.use((req, res, next) => {
     next();
 });
 
+// ── Serve the dashboard UI (same-origin → no CORS issues) ────
+// Access at: http://localhost:3000
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../dashboard')));
+
 // ── Health check (no auth required) ──────────────────────────
-app.get("/health", (_req, res) => {
+app.get('/health', (_req, res) => {
     res.json({
-        status: "ok",
-        service: "Project Suraksha — Signal Priority Backend",
-        version: "1.0.0",
+        status: 'ok',
+        service: 'Project Suraksha — Signal Priority Backend',
+        version: '1.0.0',
         timestamp: new Date().toISOString(),
     });
 });
@@ -74,7 +90,7 @@ app.use((err, _req, res, _next) => {
 // ── Start server ──────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log("─────────────────────────────────────────────");
-    console.log("  🚑  Project Suraksha Backend is running");
+    console.log("    Project Suraksha Backend is running");
     console.log(`  ➜  http://localhost:${PORT}`);
     console.log(`  ➜  Health: http://localhost:${PORT}/health`);
     console.log(

@@ -1,15 +1,32 @@
-# ProjectSuraksha — Signal Priority Override Backend
+# Project Suraksha — Emergency Signal Priority & Green Corridor System
 
-> 🚑 A Node.js/Express backend service for ambulance emergency signal priority management.
+> 🚑 A real-time traffic management system designed to save critical minutes for ambulances using live telemetry and dynamic signal preemptions.
 
 ## Overview
 
-**ProjectSuraksha** provides a secure REST API that allows authorized emergency vehicles to override intersection traffic signals in real time. When an ambulance sends a priority request:
+**Project Suraksha** is an integrated system that creates on-the-fly "Green Corridors" for emergency vehicles. By combining a secure Signal Priority API, a real-time geospatial processing engine, and an interactive command dashboard, it locks perpendicular traffic and turns upcoming intersections green exactly when needed, ensuring safe, high-speed routes during critical missions.
 
-1. **Security is validated** — every request must carry a `SecurityToken` and a known `ambulance_id`
-2. **Safety interlock activates** — the ambulance's corridor signal turns `GREEN`; all perpendicular signals are hard-locked to `HARD_RED`
-3. **Pre-Arrival Flush fires** — if the ambulance is ≤ 20 s away, green activates immediately; otherwise it is scheduled 10 s before arrival
-4. **Intersection state is returned** as JSON for the frontend to render in real time
+---
+
+## System Architecture
+
+The repository consists of 3 tightly integrated components:
+
+1. **Signal Priority Backend (Port 3000)**
+   - Provides a secure REST API for authorized vehicles to request immediate traffic signal overrides.
+   - Acts as the central integration point for manual prioritization and intersection layout configuration.
+   - Manages interlocks and pre-arrival flushes to clear traffic before the ambulance reaches the node.
+
+2. **Green Corridor Engine (Port 3001)**
+   - A real-time geospatial processing engine running independently.
+   - Computes paths natively using OSRM APIs and specialized GraphML routing.
+   - Tracks live ambulance telemetry and computes Time-To-Intersection (TTI).
+   - Communicates dynamically over Socket.io to trigger signal preemptions on the backend as the vehicle approaches.
+
+3. **Command Dashboard**
+   - A Leaflet-based frontend UI served by the Signal Priority Backend.
+   - Visualizes the entire emergency fleet over the Jaipur road network.
+   - Features a fully-fledged simulation runner allowing command centers to test routes, visualize green wave activations, and calculate metrics like distance covered, operational speed, and time saved against baseline traffic.
 
 ---
 
@@ -17,24 +34,24 @@
 
 ```
 ProjectSuraksha/
-├── app.js                          # Entry point — Express server
-├── .env                            # Environment variables (not committed)
-├── .env.example                    # Template for environment variables
-├── package.json
+├── src/                          # Main Signal Priority Backend (Port 3000)
+│   ├── app.js                    # Entry point 
+│   ├── config/                   # Authorized vehicles & intersection schemas
+│   ├── logic/                    # Safety interlock & pre-arrival flush logic
+│   ├── middleware/               # Security validators
+│   └── routes/                   # Signal override API routes
 │
-├── config/
-│   ├── authorizedVehicles.js       # Mock DB of authorized ambulances
-│   └── intersections.js            # Intersection layouts & conflict groups
+├── green-corridor-engine/        # Engine for routing and telemetry (Port 3001)
+│   ├── package.json              # Engine dependencies
+│   ├── Data/                     # Local road network map data graphs
+│   └── src/                      # Telemetry streaming, TTI math, and router
 │
-├── middleware/
-│   └── securityHandshake.js        # Token + vehicle ID validation
+├── dashboard/                    # Command Dashboard UI (Served on Port 3000)
+│   ├── app.js                    # Map display, Simulation runner, and WebSockets
+│   ├── index.html                # UI Layout
+│   └── style.css                 # Theming and Animations
 │
-├── logic/
-│   ├── signalController.js         # Safety interlock (GREEN / HARD_RED)
-│   └── preArrivalFlush.js          # Pre-Arrival Flush timer
-│
-└── routes/
-    └── signal.js                   # POST /api/v1/signal/priority-request
+└── package.json                  # Root dependencies & runner scripts
 ```
 
 ---
@@ -43,44 +60,69 @@ ProjectSuraksha/
 
 ### Prerequisites
 - Node.js ≥ 18
+- A modern web browser 
 
-### Installation
+### 1. Installation
+
+Both the primary backend and the corridor engine have dependencies that must be installed.
 
 ```bash
+# Install root dependencies
 npm install
+
+# Install Green Corridor Engine dependencies
+cd green-corridor-engine
+npm install
+cd ..
 ```
 
-### Run (development)
+### 2. Environment Configuration
+
+In the root directory, copy the template file to create your environment configuration:
 
 ```bash
+cp .env.example .env
+```
+Ensure that `SECURITY_TOKEN` is set, and `PORT` is `3000`.
+
+### 3. Running the System
+
+You must start both backend services for the system to function end-to-end.
+
+**Terminal 1 — Signal Priority Backend & Dashboard:**
+```bash
+# In the root ProjectSuraksha directory:
 npm run dev
 ```
+*(Runs on `http://localhost:3000`)*
 
-### Run (production)
-
+**Terminal 2 — Green Corridor Engine:**
 ```bash
-npm start
+# In the green-corridor-engine directory:
+node src/server.js
 ```
-
-Server starts on `http://localhost:3000` by default.
+*(Runs on `http://localhost:3001`)*
 
 ---
 
-## API Reference
+### Dashboard Access
+Once both servers are running, open your browser to **http://localhost:3000**. 
+
+From here, you can select an emergency vehicle, plot a route using preset areas or custom coordinates, and click **START SIMULATION** to watch the Green Corridor Engine autonomously manage the route in real-time.
+
+---
+
+## API Reference (Signal Priority Backend)
 
 ### `POST /api/v1/signal/priority-request`
-
 Triggers an emergency signal priority override.
-
-#### Required Header
 
 | Header          | Value                         |
 |-----------------|-------------------------------|
 | `SecurityToken` | Value from your `.env` file   |
 | `Content-Type`  | `application/json`            |
 
-#### Request Body
-
+**Request Body:**
 ```json
 {
   "signal_id": "N",
@@ -89,86 +131,13 @@ Triggers an emergency signal priority override.
 }
 ```
 
-| Field                    | Type   | Description                            |
-|--------------------------|--------|----------------------------------------|
-| `signal_id`              | string | Direction to set GREEN: `N/S/E/W`      |
-| `ambulance_id`           | string | Vehicle ID (must be in authorized list)|
-| `estimated_arrival_time` | number | Seconds until ambulance arrives        |
-
-#### Example Response (200 OK)
-
-```json
-{
-  "success": true,
-  "request_id": "a1b2c3d4-...",
-  "timestamp": "2026-02-20T16:49:00.000Z",
-  "vehicle": {
-    "id": "AMB-001",
-    "name": "City Hospital Ambulance 1",
-    "operator": "City Hospital"
-  },
-  "priority_request": {
-    "signal_id": "N",
-    "estimated_arrival_time_seconds": 15
-  },
-  "flush_status": "IMMEDIATE",
-  "activation_delay_seconds": 0,
-  "activation_at_iso": "2026-02-20T16:49:00.000Z",
-  "safety_interlock": {
-    "green_signal": "N",
-    "hard_red_signals": ["E", "W"],
-    "intersection_id": "INT-MAIN",
-    "intersection_name": "Main Street & Park Avenue Intersection"
-  },
-  "intersection_state": {
-    "N": { "direction": "North", "state": "GREEN",    "note": "Priority override — emergency vehicle corridor active" },
-    "S": { "direction": "South", "state": "RED",      "note": "Held at red during emergency flush window" },
-    "E": { "direction": "East",  "state": "HARD_RED", "note": "Safety interlock active — perpendicular to emergency corridor..." },
-    "W": { "direction": "West",  "state": "HARD_RED", "note": "Safety interlock active — perpendicular to emergency corridor..." }
-  }
-}
-```
-
----
-
 ## Authorized Test Vehicles
+These IDs are in the mock database and can be used to authenticate simulation requests:
 
-These IDs are in the mock database and can be used for testing:
-
-| ambulance_id | Name                         | Operator                    |
-|--------------|------------------------------|-----------------------------|
-| `AMB-001`    | City Hospital Ambulance 1    | City Hospital               |
-| `AMB-002`    | City Hospital Ambulance 2    | City Hospital               |
-| `AMB-003`    | Regional Trauma Unit         | Regional Medical Services   |
-| `FIRE-001`   | Central Fire Station Truck 1 | Municipal Fire Department   |
-
----
-
-## Environment Variables
-
-| Variable         | Default                       | Description                        |
-|------------------|-------------------------------|------------------------------------|
-| `PORT`           | `3000`                        | HTTP server port                   |
-| `SECURITY_TOKEN` | *(required)*                  | Master token for header validation |
-
-Copy `.env.example` → `.env` and fill in your values.
-
----
-
-## Health Check
-
-```
-GET /health
-```
-
-Returns `200 OK` with service metadata. No authentication required.
-
----
-
-## Signal States
-
-| State      | Meaning                                                         |
-|------------|-----------------------------------------------------------------|
-| `GREEN`    | Vehicles may proceed (ambulance corridor)                       |
-| `RED`      | Vehicles must stop (normal cycle hold)                          |
-| `HARD_RED` | Safety interlock — perpendicular signal locked until cleared    |
+| ambulance_id | Name                         | Type       |
+|--------------|------------------------------|------------|
+| `AMB-001`    | City Hospital Ambulance 1    | Ambulance  |
+| `AMB-002`    | City Hospital Ambulance 2    | Ambulance  |
+| `AMB-003`    | Regional Trauma Unit         | Ambulance  |
+| `FIRE-001`   | Central Fire Station Truck 1 | Fire Truck |
+| `POLICE-001` | Traffic Response Unit        | Police     |

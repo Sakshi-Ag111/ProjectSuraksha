@@ -27,11 +27,12 @@
 
 const INTERSECTIONS = {
 
-    // ── Intersection 1: Central hub ─────────────────────────────
+    // ── Intersection 1: JLN Marg / Tonk Road junction ───────────
+    // Sits on the SMS Hospital → Tonk Road route (lat ~26.869)
     "INT-MAIN": {
         id: "INT-MAIN",
-        name: "Civil Lines Crossing — Jaipur",
-        location: { lat: 26.9124, lng: 75.7873 },
+        name: "C-Scheme Area Crossing",
+        location: { lat: 26.8860, lng: 75.7880 },
         signals: {
             N: { direction: "North", default_state: "RED" },
             S: { direction: "South", default_state: "RED" },
@@ -46,11 +47,12 @@ const INTERSECTIONS = {
         },
     },
 
-    // ── Intersection 2: Northern approach ───────────────────────
+    // ── Intersection 2: Dravyavati River crossing ────────────────
+    // Mid-point on the standard route (lat ~26.865)
     "INT-NORTH": {
         id: "INT-NORTH",
-        name: "Sindhi Camp Area Crossing — Jaipur",
-        location: { lat: 26.9300, lng: 75.7873 },
+        name: "Sindhi Camp Bus Stand Crossing",
+        location: { lat: 26.9350, lng: 75.7860 },
         signals: {
             N: { direction: "North", default_state: "RED" },
             S: { direction: "South", default_state: "RED" },
@@ -65,10 +67,11 @@ const INTERSECTIONS = {
         },
     },
 
-    // ── Intersection 3: Eastern corridor ────────────────────────
+    // ── Intersection 3: Tonk Road / Sanganer approach ────────────
+    // Near route destination zone (lat ~26.862)
     "INT-EAST": {
         id: "INT-EAST",
-        name: "Jaipur Junction Area Crossing",
+        name: "Jaipur Junction Stn Crossing",
         location: { lat: 26.9124, lng: 75.8050 },
         signals: {
             N: { direction: "North", default_state: "RED" },
@@ -84,6 +87,7 @@ const INTERSECTIONS = {
         },
     },
 };
+
 
 /**
  * Return a lightweight summary of all registered intersections.
