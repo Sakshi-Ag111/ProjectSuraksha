@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Suraksha — Command Dashboard</title>
+  <meta name="description" content="Real-time ambulance signal priority dashboard for Project Suraksha" />
+
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Socket.io -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap"
+    rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ───────────────────────── HEADER ───────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon">🚑</span>
+        <div>
+          <span class="logo-title">PROJECT SURAKSHA</span>
+          <span class="logo-sub">Emergency Signal Priority System</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-center">
+      <div class="system-status" id="systemStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-stat">
+        <span class="stat-label">SIGNALS CLEARED</span>
+        <span class="stat-value" id="hdrCleared">0</span>
+      </div>
+      <div class="header-stat">
+        <span class="stat-label">TIME SAVED</span>
+        <span class="stat-value highlight" id="hdrTimeSaved">0s</span>
+      </div>
+      <span class="live-clock" id="liveClock">00:00:00</span>
+    </div>
+  </header>
+
+  <!-- ───────────────────────── MISSION BANNER ───────────────────────── -->
+  <div class="mission-banner">
+    <div class="mission-banner-track">
+      <span class="mission-banner-text">▌ MISSION CONTROL ACTIVE ▌ PROJECT SURAKSHA ▌ GREEN CORRIDOR SYSTEM ▌ EMERGENCY
+        PRIORITY MODE ▌ JAIPUR ROAD NETWORK ▌ SIGNAL OVERRIDE READY ▌</span>
+      <span class="mission-banner-text">▌ MISSION CONTROL ACTIVE ▌ PROJECT SURAKSHA ▌ GREEN CORRIDOR SYSTEM ▌ EMERGENCY
+        PRIORITY MODE ▌ JAIPUR ROAD NETWORK ▌ SIGNAL OVERRIDE READY ▌</span>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── MAIN GRID ───────────────────────── -->
+  <main class="main-grid">
+
+    <!-- ════════════════════ LEFT PANEL — DRIVER ════════════════════ -->
+    <aside class="driver-panel">
+
+      <!-- Fleet Status -->
+      <div class="card">
+        <div class="card-label">ACTIVE FLEET</div>
+        <div class="fleet-list custom-scroll" id="fleetList">
+
+          <div class="fleet-item" id="fleet-AMB-001">
+            <div class="fleet-icon amb"><i class="fa-solid fa-truck-medical"></i></div>
+            <div class="fleet-info">
+              <span class="fleet-id">AMB-001</span>
+              <span class="fleet-name">City Hospital 1</span>
+            </div>
+            <span class="fleet-badge standby" id="fbadge-AMB-001">STANDBY</span>
+          </div>
+
+          <div class="fleet-item" id="fleet-AMB-002">
+            <div class="fleet-icon amb"><i class="fa-solid fa-truck-medical"></i></div>
+            <div class="fleet-info">
+              <span class="fleet-id">AMB-002</span>
+              <span class="fleet-name">City Hospital 2</span>
+            </div>
+            <span class="fleet-badge standby" id="fbadge-AMB-002">STANDBY</span>
+          </div>
+
+          <div class="fleet-item" id="fleet-AMB-003">
+            <div class="fleet-icon amb"><i class="fa-solid fa-truck-medical"></i></div>
+            <div class="fleet-info">
+              <span class="fleet-id">AMB-003</span>
+              <span class="fleet-name">Regional Trauma</span>
+            </div>
+            <span class="fleet-badge standby" id="fbadge-AMB-003">STANDBY</span>
+          </div>
+
+          <div class="fleet-item" id="fleet-FIRE-001">
+            <div class="fleet-icon fire"><i class="fa-solid fa-fire-flame-curved"></i></div>
+            <div class="fleet-info">
+              <span class="fleet-id">FIRE-001</span>
+              <span class="fleet-name">Central Fire Stn</span>
+            </div>
+            <span class="fleet-badge standby" id="fbadge-FIRE-001">STANDBY</span>
+          </div>
+
+          <div class="fleet-item" id="fleet-POLICE-001">
+            <div class="fleet-icon police"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="fleet-info">
+              <span class="fleet-id">POLICE-001</span>
+              <span class="fleet-name">Traffic Response</span>
+            </div>
+            <span class="fleet-badge standby" id="fbadge-POLICE-001">STANDBY</span>
+          </div>
+
+        </div>
+      </div>
+
+
+
+
+    </aside>
+
+    <!-- ════════════════════ RIGHT PANEL — DASHBOARD ════════════════════ -->
+    <section class="dashboard-panel">
+
+      <!-- Map -->
+      <div class="map-container">
+        <div id="map"></div>
+
+      </div>
+
+      <!-- Bottom row: metrics + event log -->
+      <div class="bottom-row">
+
+        <!-- Performance metrics -->
+        <div class="card metrics-card">
+          <div class="card-title-row">
+            <div class="card-label">PERFORMANCE METRICS & WAVE STATUS</div>
+            <div class="wave-badge inactive" id="waveBadge">STANDBY</div>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-stopwatch"></i></div>
+              <div class="metric-body">
+                <div class="metric-value green-text" id="mTimeSaved">+0 s</div>
+                <div class="metric-label">TIME SAVED</div>
+              </div>
+            </div>
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-route"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="mDistCovered">0.0 km</div>
+                <div class="metric-label">DISTANCE</div>
+              </div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-siren-on"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="mTriage">CRITICAL</div>
+                <div class="metric-label">TRIAGE LEVEL</div>
+              </div>
+            </div>
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-hospital"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="mETA">—</div>
+                <div class="metric-label">ETA TO DEST.</div>
+              </div>
+            </div>
+
+            <!-- Green Wave Stats -->
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-location-dot"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="wsDistance">—</div>
+                <div class="metric-label">NEXT SIGNAL</div>
+              </div>
+            </div>
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-stopwatch-20"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="wsTTI">—</div>
+                <div class="metric-label">TIME TO INT.</div>
+              </div>
+            </div>
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-wind"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="wsSpeed">—</div>
+                <div class="metric-label">WAVE SPEED</div>
+              </div>
+            </div>
+            <div class="metric">
+              <div class="metric-icon-wrap"><i class="fa-solid fa-arrow-down-9-1"></i></div>
+              <div class="metric-body">
+                <div class="metric-value" id="wsRemaining">—</div>
+                <div class="metric-label">REMAINING</div>
+              </div>
+            </div>
+          </div>
+
+
+        </div>
+
+        <!-- Event log -->
+        <div class="card log-card">
+          <div class="card-label">LIVE EVENT LOG</div>
+          <div class="event-log" id="eventLog">
+            <div class="log-entry log-info">
+              <span class="log-time">—</span>
+              <span class="log-tag">INFO</span>
+              <span class="log-msg">System initializing…</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Intersection state overlay (slides up when signal flips) -->
+  <div class="signal-toast" id="signalToast"></div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0e1a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Suraksha — Ambulance Driver</title>
+    <link rel="manifest" href="/ambulance-app/manifest.json" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="/ambulance-app/style.css" />
+</head>
+<body>
+
+<!-- SCREEN 1: LOGIN -->
+<div id="screen-login" class="screen active">
+    <div class="screen-content center-flex">
+        <div class="logo-wrap">
+            <div class="logo-icon">🚑</div>
+            <h1 class="logo-title">SURAKSHA</h1>
+            <p class="logo-sub">Green Corridor System — Driver Interface</p>
+        </div>
+        <div class="card form-card">
+            <label class="field-label">Select Your Vehicle</label>
+            <div class="vehicle-grid" id="vehicleGrid">
+                <button class="vehicle-btn selected" data-id="AMB-001" data-type="amb" onclick="selectVehicle(this)">
+                    <span class="vehicle-emoji">🚑</span>
+                    <span class="vehicle-name">AMB-001</span>
+                    <span class="vehicle-desc">City Hospital</span>
+                </button>
+                <button class="vehicle-btn" data-id="AMB-002" data-type="amb" onclick="selectVehicle(this)">
+                    <span class="vehicle-emoji">🚑</span>
+                    <span class="vehicle-name">AMB-002</span>
+                    <span class="vehicle-desc">City Hospital</span>
+                </button>
+                <button class="vehicle-btn" data-id="AMB-003" data-type="amb" onclick="selectVehicle(this)">
+                    <span class="vehicle-emoji">🚑</span>
+                    <span class="vehicle-name">AMB-003</span>
+                    <span class="vehicle-desc">Regional Trauma</span>
+                </button>
+                <button class="vehicle-btn" data-id="FIRE-001" data-type="fire" onclick="selectVehicle(this)">
+                    <span class="vehicle-emoji">🚒</span>
+                    <span class="vehicle-name">FIRE-001</span>
+                    <span class="vehicle-desc">Fire Station</span>
+                </button>
+            </div>
+            <button class="btn-primary mt-24" onclick="gotoDispatch()">
+                <span>PROCEED AS DRIVER</span>
+                <span class="btn-arrow">→</span>
+            </button>
+        </div>
+        <div class="version-tag">Project Suraksha v1.0 · Jaipur Smart Traffic</div>
+    </div>
+</div>
+
+<!-- SCREEN 2: DISPATCH -->
+<div id="screen-dispatch" class="screen">
+    <header class="app-header">
+        <button class="back-btn" onclick="gotoScreen('screen-login')">← Back</button>
+        <div class="header-vehicle" id="hdrVehicle">AMB-001</div>
+        <div class="header-status" id="hdrStatus">
+            <span class="status-dot standby"></span> STANDBY
+        </div>
+    </header>
+    <div class="screen-content scrollable">
+        <div class="section-label">Patient Criticality</div>
+        <div class="crit-row">
+            <button class="crit-btn high active" id="critHigh" onclick="setCriticality('HIGH', this)">🔴 HIGH</button>
+            <button class="crit-btn medium" id="critMed"  onclick="setCriticality('MEDIUM', this)">🟡 MEDIUM</button>
+            <button class="crit-btn low"    id="critLow"  onclick="setCriticality('LOW', this)">🟢 LOW</button>
+        </div>
+
+        <div class="section-label">Destination (Hospital)</div>
+        <select id="destSelect" class="select-input" onchange="onDestChange()">
+            <option value="">— Select Hospital —</option>
+            <option value="26.9021,75.7792">SMS Hospital (Sawai Mansingh)</option>
+            <option value="26.8694,75.8002">Fortis Escorts Hospital</option>
+            <option value="26.9124,75.8051">Jaipur Junction Area Hospital</option>
+            <option value="26.8540,75.8107">Santokba Durlabhji Hospital</option>
+            <option value="custom">Custom Coordinates…</option>
+        </select>
+        <div id="customDest" class="custom-coords hidden">
+            <input id="destLat" class="text-input half" type="number" step="0.0001" placeholder="Latitude (26.xx)" />
+            <input id="destLon" class="text-input half" type="number" step="0.0001" placeholder="Longitude (75.xx)" />
+        </div>
+
+        <div class="section-label">Pickup Location</div>
+        <select id="pickupSelect" class="select-input" onchange="onPickupChange()">
+            <option value="">— Select Origin —</option>
+            <option value="26.8950,75.7870">Bani Park (South)</option>
+            <option value="26.8860,75.7880">C-Scheme Area</option>
+            <option value="26.9000,75.7900">Statue Circle Airport Road</option>
+            <option value="26.9050,75.7875">Ajmer Road Cross</option>
+            <option value="custom">Custom Coordinates…</option>
+        </select>
+        <div id="customPickup" class="custom-coords hidden">
+            <input id="pickupLat" class="text-input half" type="number" step="0.0001" placeholder="Latitude (26.xx)" />
+            <input id="pickupLon" class="text-input half" type="number" step="0.0001" placeholder="Longitude (75.xx)" />
+        </div>
+
+        <button class="btn-emergency" id="emergencyBtn" onclick="startEmergency()">
+            <div class="emergency-icon">🚨</div>
+            <div class="emergency-label">START EMERGENCY</div>
+            <div class="emergency-sub">Tap to activate Green Corridor</div>
+        </button>
+
+
+    </div>
+</div>
+
+<!-- SCREEN 3: LIVE NAVIGATION -->
+<div id="screen-nav" class="screen">
+    <header class="app-header nav-header">
+        <button class="stop-trip-btn" onclick="stopEmergency()">⏹ STOP TRIP</button>
+        <div class="nav-header-info">
+            <div class="nav-criticality" id="navCriticality">🔴 HIGH</div>
+            <div class="nav-vehicle" id="navVehicle">AMB-001</div>
+        </div>
+        <div class="wave-indicator inactive" id="waveIndicator">⬤ MONITORING</div>
+    </header>
+    
+    <!-- Turn-by-turn Banner -->
+    <div class="tbt-banner" id="tbtBanner">
+        <div class="tbt-icon" id="tbtIcon">↱</div>
+        <div class="tbt-info">
+            <div class="tbt-dist" id="tbtDist">150m</div>
+            <div class="tbt-text" id="tbtText">Turn right onto MG Road</div>
+        </div>
+    </div>
+    
+    <div id="navMap"></div>
+    <div class="stats-bar">
+        <div class="stat-item"><div class="stat-value" id="statDist">—</div><div class="stat-label">Distance</div></div>
+        <div class="stat-item"><div class="stat-value" id="statETA">—</div><div class="stat-label">ETA</div></div>
+        <div class="stat-item"><div class="stat-value" id="statSpeed">—</div><div class="stat-label">Speed</div></div>
+        <div class="stat-item"><div class="stat-value" id="statCleared">0</div><div class="stat-label">Cleared</div></div>
+    </div>
+    <!-- Google Maps-style NEXT JUNCTION card -->
+    <div class="next-junction-card" id="nextJunctionCard">
+        <div class="njc-signal" id="njcSignal">🚦</div>
+        <div class="njc-body">
+            <div class="njc-label">NEXT JUNCTION</div>
+            <div class="njc-name" id="njcName">Waiting for route…</div>
+            <div class="njc-sub" id="njcSub"></div>
+        </div>
+        <div class="njc-badge" id="njcBadge">—</div>
+    </div>
+    <div class="float-panic">
+        <button class="float-btn police"   title="Request Police"   onclick="requestPolice()">🚔</button>
+        <button class="float-btn hospital" title="Alert Hospital"   onclick="alertHospital()">🏥</button>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script src="/ambulance-app/app.js"></script>
+</body>
+</html>
