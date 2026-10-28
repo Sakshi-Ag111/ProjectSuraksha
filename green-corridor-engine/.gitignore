@@ -1,0 +1,4 @@
+node_modules/
+.env
+scripts/graphml_schema.json
+Data/

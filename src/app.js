@@ -59,8 +59,9 @@ app.use((req, res, next) => {
 });
 
 // ── Static files ──────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, '../dashboard')));
-app.use('/ambulance-app', express.static(path.join(__dirname, '../ambulance-app')));
+const staticOpts = { maxAge: 0, etag: false, setHeaders: res => res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate') };
+app.use(express.static(path.join(__dirname, '../dashboard'), staticOpts));
+app.use('/ambulance-app', express.static(path.join(__dirname, '../ambulance-app'), staticOpts));
 
 // ── Health check ──────────────────────────────────────────────
 app.get('/health', (_req, res) => {

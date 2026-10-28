@@ -2,162 +2,351 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0a0e1a" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#090a0f" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Suraksha — Ambulance Driver</title>
+    <title>Suraksha — Driver Terminal</title>
     <link rel="manifest" href="/ambulance-app/manifest.json" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="/ambulance-app/style.css" />
+    <link rel="stylesheet" href="/ambulance-app/style.css?v=20261028-3" />
 </head>
 <body>
 
-<!-- SCREEN 1: LOGIN -->
-<div id="screen-login" class="screen active">
-    <div class="screen-content center-flex">
-        <div class="logo-wrap">
-            <div class="logo-icon">🚑</div>
-            <h1 class="logo-title">SURAKSHA</h1>
-            <p class="logo-sub">Green Corridor System — Driver Interface</p>
+<div class="terminal-shell">
+    <!-- Top System Hardware Bar -->
+    <div class="terminal-hardware-bar">
+        <div class="hardware-left">
+            <span class="live-clock" id="liveClock">12:00</span>
+            <span class="hardware-tag">SURAKSHA-OS</span>
         </div>
-        <div class="card form-card">
-            <label class="field-label">Select Your Vehicle</label>
+        <div class="hardware-right">
+            <span class="conn-pill"><span class="conn-dot"></span> 5G LTE</span>
+            <span class="gps-pill">GPS 3D FIX</span>
+        </div>
+    </div>
+
+    <!-- SCREEN 1: LOGIN / VEHICLE SELECTION -->
+    <div id="screen-login" class="screen active">
+        <div class="screen-content">
+            <div class="terminal-header">
+                <div class="brand-badge">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M12 8v8"/>
+                        <path d="M8 12h8"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="terminal-title">SURAKSHA</h1>
+                    <p class="terminal-subtitle">EMERGENCY VEHICLE TERMINAL</p>
+                </div>
+            </div>
+
+            <div class="section-badge-bar">
+                <span>ASSIGNED FLEET UNIT</span>
+                <span class="badge-status">JAIPUR GRID READY</span>
+            </div>
+
             <div class="vehicle-grid" id="vehicleGrid">
-                <button class="vehicle-btn selected" data-id="AMB-001" data-type="amb" onclick="selectVehicle(this)">
-                    <span class="vehicle-emoji">🚑</span>
-                    <span class="vehicle-name">AMB-001</span>
-                    <span class="vehicle-desc">City Hospital</span>
+                <button class="vehicle-btn selected" data-id="AMB-001" data-type="amb" onclick="selectVehicle(this)" type="button">
+                    <div class="v-icon amb">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/>
+                            <circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>
+                            <path d="M8 12h4"/><path d="M10 10v4"/>
+                        </svg>
+                    </div>
+                    <div class="v-info">
+                        <div class="v-name-row">
+                            <span class="vehicle-name">AMB-001</span>
+                            <span class="v-role">ALS UNIT</span>
+                        </div>
+                        <span class="vehicle-desc">SMS Hospital Division</span>
+                    </div>
+                    <div class="v-radio-check"></div>
                 </button>
-                <button class="vehicle-btn" data-id="AMB-002" data-type="amb" onclick="selectVehicle(this)">
-                    <span class="vehicle-emoji">🚑</span>
-                    <span class="vehicle-name">AMB-002</span>
-                    <span class="vehicle-desc">City Hospital</span>
+
+                <button class="vehicle-btn" data-id="AMB-002" data-type="amb" onclick="selectVehicle(this)" type="button">
+                    <div class="v-icon amb">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/>
+                            <circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>
+                            <path d="M8 12h4"/><path d="M10 10v4"/>
+                        </svg>
+                    </div>
+                    <div class="v-info">
+                        <div class="v-name-row">
+                            <span class="vehicle-name">AMB-002</span>
+                            <span class="v-role">ALS UNIT</span>
+                        </div>
+                        <span class="vehicle-desc">Fortis Escorts Division</span>
+                    </div>
+                    <div class="v-radio-check"></div>
                 </button>
-                <button class="vehicle-btn" data-id="AMB-003" data-type="amb" onclick="selectVehicle(this)">
-                    <span class="vehicle-emoji">🚑</span>
-                    <span class="vehicle-name">AMB-003</span>
-                    <span class="vehicle-desc">Regional Trauma</span>
+
+                <button class="vehicle-btn" data-id="AMB-003" data-type="amb" onclick="selectVehicle(this)" type="button">
+                    <div class="v-icon amb">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/>
+                            <circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>
+                            <path d="M8 12h4"/><path d="M10 10v4"/>
+                        </svg>
+                    </div>
+                    <div class="v-info">
+                        <div class="v-name-row">
+                            <span class="vehicle-name">AMB-003</span>
+                            <span class="v-role">TRAUMA</span>
+                        </div>
+                        <span class="vehicle-desc">Regional Trauma Center</span>
+                    </div>
+                    <div class="v-radio-check"></div>
                 </button>
-                <button class="vehicle-btn" data-id="FIRE-001" data-type="fire" onclick="selectVehicle(this)">
-                    <span class="vehicle-emoji">🚒</span>
-                    <span class="vehicle-name">FIRE-001</span>
-                    <span class="vehicle-desc">Fire Station</span>
+
+                <button class="vehicle-btn" data-id="FIRE-001" data-type="fire" onclick="selectVehicle(this)" type="button">
+                    <div class="v-icon fire">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/>
+                        </svg>
+                    </div>
+                    <div class="v-info">
+                        <div class="v-name-row">
+                            <span class="vehicle-name">FIRE-001</span>
+                            <span class="v-role">RESCUE</span>
+                        </div>
+                        <span class="vehicle-desc">Central Fire Station</span>
+                    </div>
+                    <div class="v-radio-check"></div>
                 </button>
             </div>
-            <button class="btn-primary mt-24" onclick="gotoDispatch()">
-                <span>PROCEED AS DRIVER</span>
-                <span class="btn-arrow">→</span>
+
+            <div class="terminal-footer-action">
+                <button class="btn-primary" onclick="gotoDispatch()" type="button">
+                    <span>CONNECT TERMINAL</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <div class="security-meta">ENCRYPTED TLS 1.3 • MUTUAL FLEET AUTHENTICATION</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: DISPATCH & MISSION SETUP -->
+    <div id="screen-dispatch" class="screen">
+        <header class="app-header">
+            <button class="back-btn" onclick="gotoScreen('screen-login')" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                <span>Units</span>
+            </button>
+            <div class="header-vehicle-badge" id="hdrVehicle">AMB-001</div>
+            <div class="header-status" id="hdrStatus">
+                <span class="status-dot standby"></span>
+                <span>STANDBY</span>
+            </div>
+        </header>
+
+        <div class="screen-content scrollable">
+            <div class="dispatch-form-deck">
+                <!-- Patient Triage Severity -->
+                <div class="form-group">
+                    <label class="section-label">PATIENT CRITICALITY LEVEL</label>
+                    <div class="crit-row">
+                        <button class="crit-btn high active" id="critHigh" onclick="setCriticality('HIGH', this)" type="button">
+                            <span class="crit-name">Critical</span>
+                            <span class="crit-sub">Code 3</span>
+                        </button>
+                        <button class="crit-btn medium" id="critMed" onclick="setCriticality('MEDIUM', this)" type="button">
+                            <span class="crit-name">Urgent</span>
+                            <span class="crit-sub">Code 2</span>
+                        </button>
+                        <button class="crit-btn low" id="critLow" onclick="setCriticality('LOW', this)" type="button">
+                            <span class="crit-name">Routine</span>
+                            <span class="crit-sub">Code 1</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hospital Destination -->
+                <div class="form-group">
+                    <label class="section-label">HOSPITAL DESTINATION</label>
+                    <div class="select-wrapper">
+                        <div class="select-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 12h4"/><path d="M10 10v4"/></svg>
+                        </div>
+                        <select id="destSelect" class="select-input" onchange="onDestChange()">
+                            <option value="">Select Destination Hospital…</option>
+                            <option value="26.9021,75.7792" selected>SMS Hospital (Sawai Mansingh)</option>
+                            <option value="26.8694,75.8002">Fortis Escorts Hospital</option>
+                            <option value="26.9124,75.8051">Jaipur Junction Hospital</option>
+                            <option value="26.8540,75.8107">Santokba Durlabhji Hospital</option>
+                            <option value="custom">Enter Custom Coordinates…</option>
+                        </select>
+                    </div>
+                    <div id="customDest" class="custom-coords hidden">
+                        <input id="destLat" class="text-input half" type="number" step="0.0001" placeholder="Latitude" />
+                        <input id="destLon" class="text-input half" type="number" step="0.0001" placeholder="Longitude" />
+                    </div>
+                </div>
+
+                <!-- Incident Pickup Point -->
+                <div class="form-group">
+                    <label class="section-label">INCIDENT PICKUP POINT</label>
+                    <div class="select-wrapper">
+                        <div class="select-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                        </div>
+                        <select id="pickupSelect" class="select-input" onchange="onPickupChange()">
+                            <option value="">Select Pickup Location…</option>
+                            <option value="26.89599,75.78996" selected>Sehkar Marg (South Corridor)</option>
+                            <option value="26.8860,75.7880">C-Scheme Crossway</option>
+                            <option value="26.9000,75.7900">Statue Circle Hub</option>
+                            <option value="26.9050,75.7875">Ajmer Road Crossing</option>
+                            <option value="custom">Enter Custom Coordinates…</option>
+                        </select>
+                    </div>
+                    <div id="customPickup" class="custom-coords hidden">
+                        <input id="pickupLat" class="text-input half" type="number" step="0.0001" placeholder="Latitude" />
+                        <input id="pickupLon" class="text-input half" type="number" step="0.0001" placeholder="Longitude" />
+                    </div>
+                </div>
+
+                <!-- Mission Corridor Briefing Card -->
+                <div class="briefing-card">
+                    <div class="briefing-header">
+                        <span class="briefing-title">CORRIDOR CLEARANCE PROTOCOL</span>
+                        <span class="briefing-badge">AUTOMATED PREEMPTION</span>
+                    </div>
+                    <div class="briefing-grid">
+                        <div class="b-item">
+                            <span class="b-lbl">Routing</span>
+                            <span class="b-val">OSRM Road Centerline</span>
+                        </div>
+                        <div class="b-item">
+                            <span class="b-lbl">Signals</span>
+                            <span class="b-val">Dynamic TTI Queue Flush</span>
+                        </div>
+                        <div class="b-item">
+                            <span class="b-lbl">Target ETA</span>
+                            <span class="b-val" id="briefingEta">~ 2m 45s</span>
+                        </div>
+                        <div class="b-item">
+                            <span class="b-lbl">Preemption Range</span>
+                            <span class="b-val">800 m / 30s Window</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Emergency Activation CTA -->
+                <button class="btn-emergency" id="emergencyBtn" onclick="startEmergency()" type="button">
+                    <div class="emergency-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                    </div>
+                    <div class="emergency-text">
+                        <span class="emergency-label">ACTIVATE GREEN CORRIDOR</span>
+                        <span class="emergency-sub">Locks signals green along route · Preempts conflicting traffic</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: LIVE TACTICAL NAVIGATION -->
+    <div id="screen-nav" class="screen">
+        <header class="app-header nav-header">
+            <button class="stop-trip-btn" onclick="stopEmergency()" type="button">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                <span>END MISSION</span>
+            </button>
+
+            <div class="nav-header-info">
+                <span class="nav-crit-badge" id="navCriticality">CRITICAL</span>
+                <span class="nav-veh-badge" id="navVehicle">AMB-001</span>
+            </div>
+
+            <div class="wave-indicator active" id="waveIndicator">CORRIDOR SYNCED</div>
+        </header>
+
+        <!-- Turn-by-Turn Maneuver HUD Banner -->
+        <div class="tbt-banner" id="tbtBanner">
+            <div class="tbt-icon-wrapper" id="tbtIconWrap">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="tbtIconSvg">
+                    <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                </svg>
+            </div>
+            <div class="tbt-info">
+                <div class="tbt-dist" id="tbtDist">...</div>
+                <div class="tbt-text" id="tbtText">Generating green corridor navigation…</div>
+            </div>
+        </div>
+
+        <!-- Full-bleed Leaflet Map -->
+        <div id="navMap"></div>
+
+        <!-- Upcoming Traffic Signal Card -->
+        <div class="next-junction-card" id="nextJunctionCard">
+            <!-- Custom 3-lens Traffic Signal Visualizer -->
+            <div class="traffic-signal-box">
+                <span class="sig-lens red" id="lensRed"></span>
+                <span class="sig-lens yellow" id="lensYellow"></span>
+                <span class="sig-lens green lit" id="lensGreen"></span>
+            </div>
+            <div class="njc-body">
+                <div class="njc-label">UPCOMING INTERSECTION PREEMPTION</div>
+                <div class="njc-name" id="njcName">Scanning Corridor Signals…</div>
+                <div class="njc-sub" id="njcSub">Corridor signal sync in progress</div>
+            </div>
+            <div class="njc-badge green" id="njcBadge">PRE-CLEARED</div>
+        </div>
+
+        <!-- Telemetry HUD Cluster -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="statSpeed">0 km/h</div>
+                <div class="stat-label">SPEED</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statDist">—</div>
+                <div class="stat-label">REMAINING</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statETA">—</div>
+                <div class="stat-label">EST. TIME</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="statCleared">0</div>
+                <div class="stat-label">PREEMPTED</div>
+            </div>
+        </div>
+
+        <!-- Quick Responder Actions -->
+        <div class="float-panic">
+            <button class="float-btn police" title="Request Police Escort" onclick="requestPolice()" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <circle cx="12" cy="11" r="3"/>
+                </svg>
+                <span>Police</span>
+            </button>
+            <button class="float-btn hospital" title="Alert Hospital ER" onclick="alertHospital()" type="button">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/>
+                    <circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>
+                </svg>
+                <span>ER Alert</span>
             </button>
         </div>
-        <div class="version-tag">Project Suraksha v1.0 · Jaipur Smart Traffic</div>
     </div>
 </div>
 
-<!-- SCREEN 2: DISPATCH -->
-<div id="screen-dispatch" class="screen">
-    <header class="app-header">
-        <button class="back-btn" onclick="gotoScreen('screen-login')">← Back</button>
-        <div class="header-vehicle" id="hdrVehicle">AMB-001</div>
-        <div class="header-status" id="hdrStatus">
-            <span class="status-dot standby"></span> STANDBY
-        </div>
-    </header>
-    <div class="screen-content scrollable">
-        <div class="section-label">Patient Criticality</div>
-        <div class="crit-row">
-            <button class="crit-btn high active" id="critHigh" onclick="setCriticality('HIGH', this)">🔴 HIGH</button>
-            <button class="crit-btn medium" id="critMed"  onclick="setCriticality('MEDIUM', this)">🟡 MEDIUM</button>
-            <button class="crit-btn low"    id="critLow"  onclick="setCriticality('LOW', this)">🟢 LOW</button>
-        </div>
-
-        <div class="section-label">Destination (Hospital)</div>
-        <select id="destSelect" class="select-input" onchange="onDestChange()">
-            <option value="">— Select Hospital —</option>
-            <option value="26.9021,75.7792">SMS Hospital (Sawai Mansingh)</option>
-            <option value="26.8694,75.8002">Fortis Escorts Hospital</option>
-            <option value="26.9124,75.8051">Jaipur Junction Area Hospital</option>
-            <option value="26.8540,75.8107">Santokba Durlabhji Hospital</option>
-            <option value="custom">Custom Coordinates…</option>
-        </select>
-        <div id="customDest" class="custom-coords hidden">
-            <input id="destLat" class="text-input half" type="number" step="0.0001" placeholder="Latitude (26.xx)" />
-            <input id="destLon" class="text-input half" type="number" step="0.0001" placeholder="Longitude (75.xx)" />
-        </div>
-
-        <div class="section-label">Pickup Location</div>
-        <select id="pickupSelect" class="select-input" onchange="onPickupChange()">
-            <option value="">— Select Origin —</option>
-            <option value="26.8950,75.7870">Bani Park (South)</option>
-            <option value="26.8860,75.7880">C-Scheme Area</option>
-            <option value="26.9000,75.7900">Statue Circle Airport Road</option>
-            <option value="26.9050,75.7875">Ajmer Road Cross</option>
-            <option value="custom">Custom Coordinates…</option>
-        </select>
-        <div id="customPickup" class="custom-coords hidden">
-            <input id="pickupLat" class="text-input half" type="number" step="0.0001" placeholder="Latitude (26.xx)" />
-            <input id="pickupLon" class="text-input half" type="number" step="0.0001" placeholder="Longitude (75.xx)" />
-        </div>
-
-        <button class="btn-emergency" id="emergencyBtn" onclick="startEmergency()">
-            <div class="emergency-icon">🚨</div>
-            <div class="emergency-label">START EMERGENCY</div>
-            <div class="emergency-sub">Tap to activate Green Corridor</div>
-        </button>
-
-
-    </div>
-</div>
-
-<!-- SCREEN 3: LIVE NAVIGATION -->
-<div id="screen-nav" class="screen">
-    <header class="app-header nav-header">
-        <button class="stop-trip-btn" onclick="stopEmergency()">⏹ STOP TRIP</button>
-        <div class="nav-header-info">
-            <div class="nav-criticality" id="navCriticality">🔴 HIGH</div>
-            <div class="nav-vehicle" id="navVehicle">AMB-001</div>
-        </div>
-        <div class="wave-indicator inactive" id="waveIndicator">⬤ MONITORING</div>
-    </header>
-    
-    <!-- Turn-by-turn Banner -->
-    <div class="tbt-banner" id="tbtBanner">
-        <div class="tbt-icon" id="tbtIcon">↱</div>
-        <div class="tbt-info">
-            <div class="tbt-dist" id="tbtDist">150m</div>
-            <div class="tbt-text" id="tbtText">Turn right onto MG Road</div>
-        </div>
-    </div>
-    
-    <div id="navMap"></div>
-    <div class="stats-bar">
-        <div class="stat-item"><div class="stat-value" id="statDist">—</div><div class="stat-label">Distance</div></div>
-        <div class="stat-item"><div class="stat-value" id="statETA">—</div><div class="stat-label">ETA</div></div>
-        <div class="stat-item"><div class="stat-value" id="statSpeed">—</div><div class="stat-label">Speed</div></div>
-        <div class="stat-item"><div class="stat-value" id="statCleared">0</div><div class="stat-label">Cleared</div></div>
-    </div>
-    <!-- Google Maps-style NEXT JUNCTION card -->
-    <div class="next-junction-card" id="nextJunctionCard">
-        <div class="njc-signal" id="njcSignal">🚦</div>
-        <div class="njc-body">
-            <div class="njc-label">NEXT JUNCTION</div>
-            <div class="njc-name" id="njcName">Waiting for route…</div>
-            <div class="njc-sub" id="njcSub"></div>
-        </div>
-        <div class="njc-badge" id="njcBadge">—</div>
-    </div>
-    <div class="float-panic">
-        <button class="float-btn police"   title="Request Police"   onclick="requestPolice()">🚔</button>
-        <button class="float-btn hospital" title="Alert Hospital"   onclick="alertHospital()">🏥</button>
-    </div>
-</div>
-
-<!-- Toast -->
+<!-- Tactical Toast Notification -->
 <div id="toast" class="toast"></div>
 
-<script src="/ambulance-app/app.js"></script>
+<script src="/ambulance-app/app.js?v=20261028-3"></script>
 </body>
 </html>

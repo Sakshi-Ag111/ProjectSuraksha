@@ -29,6 +29,38 @@ const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } 
 
 let corridorEngine = null; // { processTelemetry, setRoute }
 
+app.get('/', (_req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Green Corridor Engine</title>
+            <style>
+                body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
+                .card { background: #1e293b; padding: 24px; border-radius: 12px; max-width: 540px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+                h2 { color: #38bdf8; margin-top: 0; }
+                a { color: #4ade80; text-decoration: none; font-weight: 600; }
+                a:hover { text-decoration: underline; }
+                .badge { background: #15803d; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; }
+                ul { line-height: 1.8; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>🚑 Green Corridor Engine <span class="badge">ONLINE</span></h2>
+                <p>This service manages real-time geospatial calculations, TTI logic, and WebSockets on <strong>Port ${PORT}</strong>.</p>
+                <p>To view the user interfaces, visit:</p>
+                <ul>
+                    <li><a href="http://localhost:3005/">🖥️ Command Dashboard (Port 3005)</a></li>
+                    <li><a href="http://localhost:3005/ambulance-app/">📱 Ambulance Driver App (Port 3005)</a></li>
+                    <li><a href="/health">⚙️ Engine Health Check (/health)</a></li>
+                </ul>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
 app.get('/health', (_req, res) => {
     res.json({
         status: corridorEngine ? 'ready' : 'loading',

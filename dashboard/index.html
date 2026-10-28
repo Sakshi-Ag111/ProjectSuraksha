@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Project Suraksha — Command Dashboard</title>
-  <meta name="description" content="Real-time ambulance signal priority dashboard for Project Suraksha" />
+  <title>Project Suraksha — Emergency Signal Preemption Console</title>
+  <meta name="description" content="Municipal emergency vehicle green corridor management console" />
 
   <!-- Leaflet Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,227 +14,328 @@
   <!-- Socket.io -->
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-  <!-- Google Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap"
-    rel="stylesheet" />
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3.0" />
 </head>
 
 <body>
 
-  <!-- ───────────────────────── HEADER ───────────────────────── -->
-  <header class="header">
-    <div class="header-left">
-      <div class="logo">
-        <span class="logo-icon">🚑</span>
-        <div>
-          <span class="logo-title">PROJECT SURAKSHA</span>
-          <span class="logo-sub">Emergency Signal Priority System</span>
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-symbol">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M12 8v8"/>
+          <path d="M8 12h8"/>
+        </svg>
+      </div>
+      <div class="brand-meta">
+        <span class="brand-name">SURAKSHA</span>
+        <span class="brand-tag">MUNICIPAL GREEN CORRIDOR CONSOLE</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="status-pill" id="systemStatus">
+        <span class="status-indicator" id="statusDot"></span>
+        <span class="status-label" id="statusText">Connecting…</span>
+      </div>
+      <span class="nav-divider"></span>
+      <div class="network-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        <span>Jaipur Central Grid</span>
+      </div>
+    </div>
+
+    <div class="header-stats">
+      <div class="kpi-group">
+        <div class="kpi-item">
+          <span class="kpi-lbl">Preempted Signals</span>
+          <span class="kpi-val" id="hdrCleared">0</span>
+        </div>
+        <span class="kpi-sep"></span>
+        <div class="kpi-item">
+          <span class="kpi-lbl">Time Saved</span>
+          <span class="kpi-val highlight" id="hdrTimeSaved">0s</span>
         </div>
       </div>
-    </div>
-    <div class="header-center">
-      <div class="system-status" id="systemStatus">
-        <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Connecting…</span>
+
+      <div class="clock-badge">
+        <span class="clock-text" id="liveClock">00:00:00</span>
+        <span class="clock-tz">IST</span>
       </div>
-    </div>
-    <div class="header-right">
-      <div class="header-stat">
-        <span class="stat-label">SIGNALS CLEARED</span>
-        <span class="stat-value" id="hdrCleared">0</span>
-      </div>
-      <div class="header-stat">
-        <span class="stat-label">TIME SAVED</span>
-        <span class="stat-value highlight" id="hdrTimeSaved">0s</span>
-      </div>
-      <span class="live-clock" id="liveClock">00:00:00</span>
     </div>
   </header>
 
-  <!-- ───────────────────────── MISSION BANNER ───────────────────────── -->
-  <div class="mission-banner">
-    <div class="mission-banner-track">
-      <span class="mission-banner-text">▌ MISSION CONTROL ACTIVE ▌ PROJECT SURAKSHA ▌ GREEN CORRIDOR SYSTEM ▌ EMERGENCY
-        PRIORITY MODE ▌ JAIPUR ROAD NETWORK ▌ SIGNAL OVERRIDE READY ▌</span>
-      <span class="mission-banner-text">▌ MISSION CONTROL ACTIVE ▌ PROJECT SURAKSHA ▌ GREEN CORRIDOR SYSTEM ▌ EMERGENCY
-        PRIORITY MODE ▌ JAIPUR ROAD NETWORK ▌ SIGNAL OVERRIDE READY ▌</span>
-    </div>
-  </div>
+  <!-- Main View -->
+  <main class="console-body">
 
-  <!-- ───────────────────────── MAIN GRID ───────────────────────── -->
-  <main class="main-grid">
+    <!-- Left Dispatch & Fleet Panel -->
+    <aside class="sidebar-panel">
 
-    <!-- ════════════════════ LEFT PANEL — DRIVER ════════════════════ -->
-    <aside class="driver-panel">
-
-      <!-- Fleet Status -->
-      <div class="card">
-        <div class="card-label">ACTIVE FLEET</div>
-        <div class="fleet-list custom-scroll" id="fleetList">
-
-          <div class="fleet-item" id="fleet-AMB-001">
-            <div class="fleet-icon amb"><i class="fa-solid fa-truck-medical"></i></div>
-            <div class="fleet-info">
-              <span class="fleet-id">AMB-001</span>
-              <span class="fleet-name">City Hospital 1</span>
-            </div>
-            <span class="fleet-badge standby" id="fbadge-AMB-001">STANDBY</span>
-          </div>
-
-          <div class="fleet-item" id="fleet-AMB-002">
-            <div class="fleet-icon amb"><i class="fa-solid fa-truck-medical"></i></div>
-            <div class="fleet-info">
-              <span class="fleet-id">AMB-002</span>
-              <span class="fleet-name">City Hospital 2</span>
-            </div>
-            <span class="fleet-badge standby" id="fbadge-AMB-002">STANDBY</span>
-          </div>
-
-          <div class="fleet-item" id="fleet-AMB-003">
-            <div class="fleet-icon amb"><i class="fa-solid fa-truck-medical"></i></div>
-            <div class="fleet-info">
-              <span class="fleet-id">AMB-003</span>
-              <span class="fleet-name">Regional Trauma</span>
-            </div>
-            <span class="fleet-badge standby" id="fbadge-AMB-003">STANDBY</span>
-          </div>
-
-          <div class="fleet-item" id="fleet-FIRE-001">
-            <div class="fleet-icon fire"><i class="fa-solid fa-fire-flame-curved"></i></div>
-            <div class="fleet-info">
-              <span class="fleet-id">FIRE-001</span>
-              <span class="fleet-name">Central Fire Stn</span>
-            </div>
-            <span class="fleet-badge standby" id="fbadge-FIRE-001">STANDBY</span>
-          </div>
-
-          <div class="fleet-item" id="fleet-POLICE-001">
-            <div class="fleet-icon police"><i class="fa-solid fa-shield-halved"></i></div>
-            <div class="fleet-info">
-              <span class="fleet-id">POLICE-001</span>
-              <span class="fleet-name">Traffic Response</span>
-            </div>
-            <span class="fleet-badge standby" id="fbadge-POLICE-001">STANDBY</span>
-          </div>
-
+      <!-- Active Fleet -->
+      <section class="panel-section">
+        <div class="section-heading">
+          <span class="heading-title">Emergency Fleet</span>
+          <span class="fleet-count">5 Units Online</span>
         </div>
-      </div>
 
+        <div class="fleet-cards" id="fleetList">
+          <div class="fleet-card active" id="fleet-AMB-001">
+            <div class="card-icon amb">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 12h4"/><path d="M10 10v4"/></svg>
+            </div>
+            <div class="card-details">
+              <div class="card-line-top">
+                <span class="unit-code">AMB-001</span>
+                <span class="badge standby" id="fbadge-AMB-001">STANDBY</span>
+              </div>
+              <span class="unit-sub">City Hospital Ambulance 1</span>
+            </div>
+          </div>
 
+          <div class="fleet-card" id="fleet-AMB-002">
+            <div class="card-icon amb">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 12h4"/><path d="M10 10v4"/></svg>
+            </div>
+            <div class="card-details">
+              <div class="card-line-top">
+                <span class="unit-code">AMB-002</span>
+                <span class="badge standby" id="fbadge-AMB-002">STANDBY</span>
+              </div>
+              <span class="unit-sub">City Hospital Ambulance 2</span>
+            </div>
+          </div>
 
+          <div class="fleet-card" id="fleet-AMB-003">
+            <div class="card-icon amb">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 12h4"/><path d="M10 10v4"/></svg>
+            </div>
+            <div class="card-details">
+              <div class="card-line-top">
+                <span class="unit-code">AMB-003</span>
+                <span class="badge standby" id="fbadge-AMB-003">STANDBY</span>
+              </div>
+              <span class="unit-sub">Regional Trauma Unit</span>
+            </div>
+          </div>
+
+          <div class="fleet-card" id="fleet-FIRE-001">
+            <div class="card-icon fire">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>
+            </div>
+            <div class="card-details">
+              <div class="card-line-top">
+                <span class="unit-code">FIRE-001</span>
+                <span class="badge standby" id="fbadge-FIRE-001">STANDBY</span>
+              </div>
+              <span class="unit-sub">Central Fire Station Truck 1</span>
+            </div>
+          </div>
+
+          <div class="fleet-card" id="fleet-POLICE-001">
+            <div class="card-icon police">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>
+            </div>
+            <div class="card-details">
+              <div class="card-line-top">
+                <span class="unit-code">POLICE-001</span>
+                <span class="badge standby" id="fbadge-POLICE-001">STANDBY</span>
+              </div>
+              <span class="unit-sub">Traffic Response Unit</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Corridor Planner & Dispatch -->
+      <section class="panel-section dispatch-section">
+        <div class="section-heading">
+          <span class="heading-title">Corridor Dispatch</span>
+        </div>
+
+        <div class="dispatch-form">
+          <!-- Triage Segmented Selector -->
+          <div class="form-group">
+            <label class="form-label">Triage Priority</label>
+            <div class="segmented-control">
+              <button class="segment-btn active red" id="triageRed" onclick="setTriage('RED')" type="button">Critical</button>
+              <button class="segment-btn yellow" id="triageYellow" onclick="setTriage('YELLOW')" type="button">Urgent</button>
+              <button class="segment-btn green" id="triageGreen" onclick="setTriage('GREEN')" type="button">Routine</button>
+            </div>
+          </div>
+
+          <!-- Unit Selector -->
+          <div class="form-group">
+            <label class="form-label">Responding Unit</label>
+            <div class="select-wrapper">
+              <select class="form-select" id="vehicleSelect">
+                <option value="AMB-001">AMB-001 — City Hospital Ambulance 1</option>
+                <option value="AMB-002">AMB-002 — City Hospital Ambulance 2</option>
+                <option value="AMB-003">AMB-003 — Regional Trauma Unit</option>
+                <option value="FIRE-001">FIRE-001 — Central Fire Station Truck 1</option>
+                <option value="POLICE-001">POLICE-001 — Traffic Response Unit</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Origin & Destination -->
+          <div class="route-legs">
+            <div class="leg-indicator">
+              <span class="leg-dot start"></span>
+              <span class="leg-line"></span>
+              <span class="leg-dot end"></span>
+            </div>
+
+            <div class="leg-inputs">
+              <div class="form-group mb-xs">
+                <div class="select-wrapper">
+                  <select class="form-select compact" id="srcPreset" onchange="applyPreset('src')">
+                    <option value="">Select origin point…</option>
+                    <option value="26.89599,75.78996">Sehkar Marg (South)</option>
+                    <option value="26.8860,75.7880">C-Scheme Area</option>
+                    <option value="26.9000,75.7900">Statue Circle</option>
+                    <option value="26.9050,75.7875">Ajmer Road Crossing</option>
+                    <option value="custom">Custom coordinates…</option>
+                  </select>
+                </div>
+                <div class="manual-inputs hidden" id="srcManual">
+                  <input class="input-coord" id="srcLat" type="number" step="0.0001" placeholder="Lat" />
+                  <input class="input-coord" id="srcLon" type="number" step="0.0001" placeholder="Lon" />
+                </div>
+              </div>
+
+              <div class="form-group mb-0">
+                <div class="select-wrapper">
+                  <select class="form-select compact" id="dstPreset" onchange="applyPreset('dst')">
+                    <option value="">Select destination…</option>
+                    <option value="26.9350,75.7860">Sindhi Camp Bus Stand</option>
+                    <option value="26.9280,75.7868">Nehru Bazaar Gate</option>
+                    <option value="26.9200,75.7875">Civil Lines Overpass</option>
+                    <option value="26.9124,75.8050">Jaipur Junction Station</option>
+                    <option value="custom">Custom coordinates…</option>
+                  </select>
+                </div>
+                <div class="manual-inputs hidden" id="dstManual">
+                  <input class="input-coord" id="dstLat" type="number" step="0.0001" placeholder="Lat" />
+                  <input class="input-coord" id="dstLon" type="number" step="0.0001" placeholder="Lon" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="route-summary-pill" id="routePreview">Select origin &amp; destination above</div>
+
+          <!-- Dispatch Action Button -->
+          <button class="dispatch-btn" id="simBtn" onclick="toggleSimulation()" type="button">
+            <svg id="simBtnIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+            <span id="simBtnText">ACTIVATE CORRIDOR</span>
+          </button>
+          <div class="dispatch-subtext" id="simSub"></div>
+        </div>
+      </section>
 
     </aside>
 
-    <!-- ════════════════════ RIGHT PANEL — DASHBOARD ════════════════════ -->
-    <section class="dashboard-panel">
+    <!-- Map & Telemetry Stage -->
+    <section class="stage-panel">
 
-      <!-- Map -->
-      <div class="map-container">
+      <!-- Map Viewport -->
+      <div class="map-viewport">
         <div id="map"></div>
 
+        <!-- Sleek Map Overlay Legend -->
+        <div class="map-legend">
+          <div class="legend-chip"><span class="chip-dot green"></span><span>Green Wave Active</span></div>
+          <div class="legend-chip"><span class="chip-dot hard-red"></span><span>Conflict Locked</span></div>
+          <div class="legend-chip"><span class="chip-dot amb"></span><span>Emergency Unit</span></div>
+        </div>
       </div>
 
-      <!-- Bottom row: metrics + event log -->
-      <div class="bottom-row">
+      <!-- Bottom Telemetry & Event Deck -->
+      <div class="telemetry-deck">
 
-        <!-- Performance metrics -->
-        <div class="card metrics-card">
-          <div class="card-title-row">
-            <div class="card-label">PERFORMANCE METRICS & WAVE STATUS</div>
-            <div class="wave-badge inactive" id="waveBadge">STANDBY</div>
-          </div>
-          <div class="metrics-grid">
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-stopwatch"></i></div>
-              <div class="metric-body">
-                <div class="metric-value green-text" id="mTimeSaved">+0 s</div>
-                <div class="metric-label">TIME SAVED</div>
-              </div>
-            </div>
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-route"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="mDistCovered">0.0 km</div>
-                <div class="metric-label">DISTANCE</div>
-              </div>
-            </div>
-
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-siren-on"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="mTriage">CRITICAL</div>
-                <div class="metric-label">TRIAGE LEVEL</div>
-              </div>
-            </div>
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-hospital"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="mETA">—</div>
-                <div class="metric-label">ETA TO DEST.</div>
-              </div>
-            </div>
-
-            <!-- Green Wave Stats -->
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-location-dot"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="wsDistance">—</div>
-                <div class="metric-label">NEXT SIGNAL</div>
-              </div>
-            </div>
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-stopwatch-20"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="wsTTI">—</div>
-                <div class="metric-label">TIME TO INT.</div>
-              </div>
-            </div>
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-wind"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="wsSpeed">—</div>
-                <div class="metric-label">WAVE SPEED</div>
-              </div>
-            </div>
-            <div class="metric">
-              <div class="metric-icon-wrap"><i class="fa-solid fa-arrow-down-9-1"></i></div>
-              <div class="metric-body">
-                <div class="metric-value" id="wsRemaining">—</div>
-                <div class="metric-label">REMAINING</div>
-              </div>
-            </div>
+        <!-- Performance Stats -->
+        <div class="telemetry-card">
+          <div class="card-bar">
+            <span class="bar-title">Live Telemetry</span>
+            <div class="corridor-status-tag" id="waveBadge">STANDBY</div>
           </div>
 
+          <div class="metrics-row">
+            <div class="stat-cell">
+              <span class="stat-label">Time Saved</span>
+              <span class="stat-num text-green" id="mTimeSaved">+0 s</span>
+            </div>
 
+            <div class="stat-cell">
+              <span class="stat-label">Distance Covered</span>
+              <span class="stat-num" id="mDistCovered">0.0 km</span>
+            </div>
+
+            <div class="stat-cell">
+              <span class="stat-label">Triage Severity</span>
+              <span class="stat-num" id="mTriage">CRITICAL</span>
+            </div>
+
+            <div class="stat-cell">
+              <span class="stat-label">ETA to Destination</span>
+              <span class="stat-num" id="mETA">—</span>
+            </div>
+
+            <div class="stat-cell">
+              <span class="stat-label">Next Junction</span>
+              <span class="stat-num" id="wsDistance">—</span>
+            </div>
+
+            <div class="stat-cell">
+              <span class="stat-label">Time-to-Int. (TTI)</span>
+              <span class="stat-num text-cyan" id="wsTTI">—</span>
+            </div>
+
+            <div class="stat-cell">
+              <span class="stat-label">Vehicle Velocity</span>
+              <span class="stat-num" id="wsSpeed">—</span>
+            </div>
+
+            <div class="stat-cell">
+              <span class="stat-label">Remaining Signals</span>
+              <span class="stat-num" id="wsRemaining">—</span>
+            </div>
+          </div>
         </div>
 
-        <!-- Event log -->
-        <div class="card log-card">
-          <div class="card-label">LIVE EVENT LOG</div>
-          <div class="event-log" id="eventLog">
-            <div class="log-entry log-info">
-              <span class="log-time">—</span>
-              <span class="log-tag">INFO</span>
-              <span class="log-msg">System initializing…</span>
+        <!-- Activity Feed -->
+        <div class="log-card">
+          <div class="card-bar">
+            <span class="bar-title">Activity Feed</span>
+          </div>
+          <div class="log-stream" id="eventLog">
+            <div class="log-row info">
+              <span class="log-clock">—</span>
+              <span class="log-tag">SYS</span>
+              <span class="log-text">Command console initialized</span>
             </div>
           </div>
         </div>
 
       </div>
+
     </section>
 
   </main>
 
-  <!-- Intersection state overlay (slides up when signal flips) -->
+  <!-- Preemption notification toast -->
   <div class="signal-toast" id="signalToast"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 
 </html>

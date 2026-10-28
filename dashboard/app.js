@@ -48,14 +48,13 @@ let lastPosition = null;
 let socket = null;
 let simPolyline = null;
 
-// Emergency Fleet definition
-// id, label shown on map tag, type (amb|fire|police), base lat/lon, popup desc
+// Emergency Fleet definition — snapped to real Jaipur road network centerlines
 const EMERGENCY_FLEET = [
-    { id: 'AMB-001', label: 'AMB-001', type: 'amb', lat: 26.8952, lon: 75.7872, desc: 'City Hospital Ambulance 1' },
-    { id: 'AMB-002', label: 'AMB-002', type: 'amb', lat: 26.8862, lon: 75.7880, desc: 'City Hospital Ambulance 2' },
-    { id: 'AMB-003', label: 'AMB-003', type: 'amb', lat: 26.9002, lon: 75.7902, desc: 'Regional Trauma Unit' },
-    { id: 'FIRE-001', label: 'FIRE-001', type: 'fire', lat: 26.9125, lon: 75.7855, desc: 'Central Fire Station Truck 1' },
-    { id: 'POLICE-001', label: 'POLICE-001', type: 'police', lat: 26.8980, lon: 75.8055, desc: 'Traffic Response Unit' },
+    { id: 'AMB-001', label: 'AMB-001', type: 'amb', lat: 26.89599, lon: 75.78996, desc: 'City Hospital Ambulance 1 (Sehkar Marg)' },
+    { id: 'AMB-002', label: 'AMB-002', type: 'amb', lat: 26.89179, lon: 75.80570, desc: 'City Hospital Ambulance 2 (Bhawani Singh Rd)' },
+    { id: 'AMB-003', label: 'AMB-003', type: 'amb', lat: 26.89960, lon: 75.81658, desc: 'Regional Trauma Unit (SMS Hospital Gate)' },
+    { id: 'FIRE-001', label: 'FIRE-001', type: 'fire', lat: 26.91821, lon: 75.81745, desc: 'Central Fire Station Truck 1 (MI Road)' },
+    { id: 'POLICE-001', label: 'POLICE-001', type: 'police', lat: 26.89604, lon: 75.80003, desc: 'Traffic Response Unit (Jan Path Roundabout)' },
 ];
 
 // The vehicle that DRIVES in the simulation (selected via UI)
@@ -125,55 +124,53 @@ function initMap() {
         zoomControl: true,
     });
 
-    // Dark map tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '\u00a9 OpenStreetMap contributors \u00a9 CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19,
+    // Dark map tiles (Esri Dark Canvas with road & street labels)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri &mdash; OpenStreetMap',
+        maxZoom: 16,
+    }).addTo(map);
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '',
+        maxZoom: 16,
     }).addTo(map);
 
     // Plot all fleet vehicles
     plotFleet();
 
-    logEvent('info', '\ud83d\uddfa Map initialized — Jaipur road network');
+    setTimeout(() => {
+        if (map) map.invalidateSize();
+    }, 200);
+
+    logEvent('info', '🗺 Map initialized — Jaipur road network');
 }
 
-// Vehicle Icon Builder
-function makeVehicleIcon(type, active) {
-    const palette = {
-        amb: { bg: '#1e3a5f', border: '#3b82f6', icon: '#93c5fd', svg: '\ud83d\ude91' },
-        fire: { bg: '#3b1414', border: '#ef4444', icon: '#fca5a5', svg: '\ud83d\ude92' },
-        police: { bg: '#1a1a3e', border: '#a855f7', icon: '#d8b4fe', svg: '\ud83d\ude94' },
-    }[type] || { bg: '#1a1a2e', border: '#64748b', icon: '#94a3b8', svg: '\u2753' };
+const VECTOR_ICONS = {
+    amb: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 12h4"/><path d="M10 10v4"/></svg>`,
+    fire: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3z"/></svg>`,
+    police: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="3"/></svg>`,
+};
 
-    const glowColor = palette.border;
-    const glow = active ? `0 0 14px ${glowColor}, 0 0 28px ${glowColor}55` : `0 0 6px ${glowColor}88`;
-    const scale = active ? 1.15 : 1;
-    const ringAnim = active
-        ? `<circle cx="22" cy="22" r="20" fill="none" stroke="${palette.border}" stroke-width="1.5" opacity="0.5">
-             <animate attributeName="r" values="16;24" dur="1.4s" repeatCount="indefinite"/>
-             <animate attributeName="opacity" values="0.6;0" dur="1.4s" repeatCount="indefinite"/>
-           </circle>`
-        : '';
-
-    const svgHtml = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-            ${ringAnim}
-            <circle cx="22" cy="22" r="16"
-                fill="${palette.bg}" stroke="${palette.border}" stroke-width="2"
-                style="filter:drop-shadow(${glow})"/>
-            <text x="22" y="27" text-anchor="middle" font-size="16"
-                font-family="Segoe UI Emoji,Apple Color Emoji,sans-serif">${palette.svg}</text>
-        </svg>`;
+// Vehicle Icon Builder — Custom Minimalist Vector Markers
+function makeVehicleIcon(type, active, id) {
+    const pulse = active ? '<span class="pin-pulse"></span>' : '';
+    const svg = VECTOR_ICONS[type] || VECTOR_ICONS.amb;
+    const callsign = id || type.toUpperCase();
 
     return L.divIcon({
-        className: '',
-        html: `<div class="vehicle-marker-wrap" style="transform:scale(${scale})">${svgHtml}
-            <div class="vehicle-tag vehicle-tag-${type}">${active ? '● ' : ''}${type.toUpperCase()}</div>
-        </div>`,
-        iconSize: [44, 58],
-        iconAnchor: [22, 22],
-        popupAnchor: [0, -22],
+        className: 'vehicle-custom-div',
+        html: `
+            <div class="vehicle-pin ${active ? 'active' : ''}">
+                ${pulse}
+                <div class="pin-capsule ${type}">
+                    ${svg}
+                    <span class="pin-id">${callsign}</span>
+                </div>
+            </div>
+        `,
+        iconSize: [84, 28],
+        iconAnchor: [42, 14],
+        popupAnchor: [0, -14],
     });
 }
 
@@ -182,16 +179,15 @@ function plotFleet() {
     EMERGENCY_FLEET.forEach(v => {
         const isActive = v.id === SIM_VEHICLE_ID;
         const marker = L.marker([v.lat, v.lon], {
-            icon: makeVehicleIcon(v.type, false),
+            icon: makeVehicleIcon(v.type, isActive, v.id),
             zIndexOffset: isActive ? 1000 : 0,
         }).addTo(map);
 
         marker.bindPopup(`
-            <div style="font-family:JetBrains Mono,monospace;line-height:1.7;color:#e2e8f0">
-                <b style="color:${v.type === 'amb' ? '#93c5fd' : v.type === 'fire' ? '#fca5a5' : '#d8b4fe'}">${v.id}</b><br>
-                ${v.desc}<br>
-                <span style="color:#64748b">Type:</span> ${v.type === 'amb' ? '\ud83d\ude91 Ambulance' : v.type === 'fire' ? '\ud83d\ude92 Fire Truck' : '\ud83d\ude94 Police'
-            }
+            <div style="font-family:Inter,sans-serif;line-height:1.6;color:#f8fafc;padding:3px 4px">
+                <div style="font-size:12px;font-weight:700;color:#38bdf8">${v.id}</div>
+                <div style="font-size:11px;color:#94a3b8">${v.desc}</div>
+                <div style="font-size:10px;color:#64748b;margin-top:2px">Status: ${isActive ? 'Responding' : 'Standby'}</div>
             </div>`);
 
         fleetMarkers[v.id] = marker;
@@ -202,22 +198,22 @@ function plotFleet() {
 function setVehicleActive(id) {
     const v = EMERGENCY_FLEET.find(x => x.id === id);
     if (!v || !fleetMarkers[id]) return;
-    fleetMarkers[id].setIcon(makeVehicleIcon(v.type, true));
+    fleetMarkers[id].setIcon(makeVehicleIcon(v.type, true, v.id));
     setFleetBadge(id, 'active');
 }
 
 function setVehicleStandby(id) {
     const v = EMERGENCY_FLEET.find(x => x.id === id);
     if (!v || !fleetMarkers[id]) return;
-    fleetMarkers[id].setIcon(makeVehicleIcon(v.type, false));
+    fleetMarkers[id].setIcon(makeVehicleIcon(v.type, false, v.id));
     setFleetBadge(id, 'standby');
 }
 
 function setFleetBadge(id, state) {
     const badge = document.getElementById(`fbadge-${id}`);
     if (!badge) return;
-    badge.className = `fleet-badge ${state}`;
-    badge.textContent = state === 'active' ? 'ACTIVE' : 'STANDBY';
+    badge.className = `badge ${state}`;
+    badge.textContent = state === 'active' ? 'RESPONDING' : 'STANDBY';
 }
 
 // Move the active vehicle marker on each sim step
@@ -613,13 +609,20 @@ async function startSimulation() {
         map.fitBounds(L.latLngBounds(coords), { padding: [40, 40], maxZoom: 16 });
 
         // Destination marker
-        L.circleMarker([dstLat, dstLon], {
-            radius: 10, fillColor: '#22c55e', color: '#86efac', weight: 2, fillOpacity: 0.8,
-        }).addTo(map).bindPopup('🏥 Destination');
+        const destIcon = L.divIcon({
+            className: 'dest-custom-div',
+            html: `
+                <div class="dest-pin">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span>GOAL</span>
+                </div>
+            `,
+            iconSize: [64, 24],
+            iconAnchor: [32, 12],
+        });
+        L.marker([dstLat, dstLon], { icon: destIcon }).addTo(map).bindPopup('🏥 Destination Hospital');
 
         // Step 5: Set up simulation state
-        // Map display uses OSRM waypoints; telemetry uses every Nth OSRM point
-        // (subsampled so we're not sending 300+ ticks per route)
         const MAX_SIM_STEPS = 80;
         const step = Math.max(1, Math.floor(mapWaypoints.length / MAX_SIM_STEPS));
         simWaypoints = mapWaypoints.filter((_, i) => i % step === 0 || i === mapWaypoints.length - 1);
@@ -631,24 +634,21 @@ async function startSimulation() {
         simTimestamp = Math.floor(Date.now() / 1000);
         simRunning = true;
 
-        const btnIcon2 = document.getElementById('simBtnIcon');
         const btnText2 = document.getElementById('simBtnText');
-        if (btnIcon2) btnIcon2.className = 'fa-solid fa-stop';
-        if (btnText2) btnText2.textContent = 'STOP SIMULATION';
-        btn.className = 'sim-btn running';
+        if (btnText2) btnText2.textContent = 'HALT CORRIDOR';
+        btn.className = 'dispatch-btn running';
         btn.disabled = false;
 
         document.getElementById('simSub').textContent =
-            `${simWaypoints.length} steps • ${Math.round(corridorData.distanceM)} m`;
+            `${simWaypoints.length} nodes • ${Math.round(corridorData.distanceM)} m route`;
 
         runSimStep();
 
     } catch (e) {
-        logEvent('error', `❌ Simulation failed: ${e.message}`);
-        const btnIconErr = document.getElementById('simBtnIcon');
+        logEvent('error', `Simulation: ${e.message}`);
         const btnTextErr = document.getElementById('simBtnText');
-        if (btnIconErr) btnIconErr.className = 'fa-solid fa-play';
-        if (btnTextErr) btnTextErr.textContent = 'START SIMULATION';
+        if (btnTextErr) btnTextErr.textContent = 'ACTIVATE CORRIDOR';
+        btn.className = 'dispatch-btn';
         btn.disabled = false;
     }
 }
@@ -761,17 +761,15 @@ function stopSimulation() {
     clearTimeout(simInterval);
     setVehicleStandby(SIM_VEHICLE_ID);
     resetSimUI();
-    logEvent('warning', '⏹ Simulation stopped by user');
+    logEvent('warning', 'Corridor halted by operator');
 }
 
 function endSimulation() {
     simRunning = false;
     const btn = document.getElementById('simBtn');
-    const btnIcon = document.getElementById('simBtnIcon');
     const btnText = document.getElementById('simBtnText');
-    if (btnIcon) btnIcon.className = 'fa-solid fa-play';
-    if (btnText) btnText.textContent = 'START SIMULATION';
-    btn.className = 'sim-btn';
+    if (btnText) btnText.textContent = 'ACTIVATE CORRIDOR';
+    if (btn) btn.className = 'dispatch-btn';
     setVehicleStandby(SIM_VEHICLE_ID);
 
     // Save persistent location for the vehicle
@@ -781,19 +779,19 @@ function endSimulation() {
         v.lon = lastPosition.lon;
     }
 
-    logEvent('success', '✅ Ambulance reached destination. Green Corridor complete! 🏥');
-    showToast('✅ Green Corridor Complete!\nAmbulance reached destination.');
-    document.getElementById('waveBadge').textContent = 'CORRIDOR CLEAR';
+    logEvent('success', 'Mission Complete: Vehicle arrived at destination.');
+    showToast('Mission Complete: Vehicle arrived at destination.');
+    document.getElementById('waveBadge').textContent = 'COMPLETED';
 }
 
 function resetSimUI() {
     const btn = document.getElementById('simBtn');
-    const btnIcon = document.getElementById('simBtnIcon');
     const btnText = document.getElementById('simBtnText');
-    if (btnIcon) btnIcon.className = 'fa-solid fa-play';
-    if (btnText) btnText.textContent = 'START SIMULATION';
-    btn.className = 'sim-btn';
-    btn.disabled = false;
+    if (btnText) btnText.textContent = 'ACTIVATE CORRIDOR';
+    if (btn) {
+        btn.className = 'dispatch-btn';
+        btn.disabled = false;
+    }
 }
 
 // Utilities
@@ -807,28 +805,28 @@ function haversineMeters(a, b) {
 }
 
 function updateSystemStatus(state, text) {
-    const dot = document.getElementById('statusDot');
+    const pill = document.getElementById('systemStatus');
     const label = document.getElementById('statusText');
-    dot.className = `status-dot ${state}`;
-    label.textContent = text;
+    if (pill) pill.className = `status-pill ${state}`;
+    if (label) label.textContent = text;
 }
 
 let logCount = 0;
-const LOG_TAG_MAP = { info: 'INFO', success: 'OK', warning: 'WARN', error: 'ERR' };
+const LOG_TAG_MAP = { info: 'SYS', success: 'PREEMPT', warning: 'WARN', error: 'ERR' };
 function logEvent(type, message) {
     const log = document.getElementById('eventLog');
+    if (!log) return;
     const entry = document.createElement('div');
     const time = new Date().toLocaleTimeString('en-IN', { hour12: false });
     const tag = LOG_TAG_MAP[type] || type.toUpperCase();
-    entry.className = `log-entry log-${type}`;
+    entry.className = `log-row ${type}`;
     entry.innerHTML =
-        `<span class="log-time">${time}</span>` +
+        `<span class="log-clock">${time}</span>` +
         `<span class="log-tag">${tag}</span>` +
-        `<span class="log-msg">${message}</span>`;
+        `<span class="log-text">${message}</span>`;
     log.prepend(entry);
     logCount++;
-    // Keep last 80 entries
-    while (log.children.length > 80) log.removeChild(log.lastChild);
+    while (log.children.length > 50) log.removeChild(log.lastChild);
 }
 
 // ── Fleet Routing (Google Maps style track) ───────────
